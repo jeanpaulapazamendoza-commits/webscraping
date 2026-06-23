@@ -1,0 +1,322 @@
+# targets.yaml — Lista de categorías a scrapear
+# Total: 77 URLs · 4 supermercados · 8 familias
+#
+# Cada target tiene: supermercado, familia (agrupación), slug (id único), url
+
+targets:
+
+  # ── TOTTUS (22 categorías) ──────────────────
+  - supermercado: tottus
+    familia:      res
+    slug:         carne-de-res
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16918/Carne-de-Res
+  - supermercado: tottus
+    familia:      pollo
+    slug:         carne-de-pollo
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16919/Carne-de-Pollo
+  - supermercado: tottus
+    familia:      cerdo
+    slug:         carne-de-cerdo
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16920/Carne-de-Cerdo
+  - supermercado: tottus
+    familia:      pavo
+    slug:         carne-de-pavo
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16921/Carne-de-Pavo
+  - supermercado: tottus
+    familia:      parrilla
+    slug:         arma-tu-parrilla
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16923/Arma-Tu-Parrilla
+  - supermercado: tottus
+    familia:      frutas
+    slug:         duraznos-sandias-melones-y-mangos
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16995/Duraznos--Sandias--Melones-y-Mangos
+  - supermercado: tottus
+    familia:      frutas
+    slug:         fresas-y-arandanos
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16993/Fresas-y-Arandanos
+  - supermercado: tottus
+    familia:      frutas
+    slug:         granadillas-tunas-y-pitahayas
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16992/Granadillas--Tunas-y-Pitahayas
+  - supermercado: tottus
+    familia:      frutas
+    slug:         jugos-naturales
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16996/Jugos-Naturales
+  - supermercado: tottus
+    familia:      frutas
+    slug:         limones-naranjas-y-mandarinas
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16994/Limones--Naranjas-y-Mandarinas
+  - supermercado: tottus
+    familia:      frutas
+    slug:         manzanas-peras-uvas-y-membrillos
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16987/Manzanas--Peras--Uvas-y-Membrillos
+  - supermercado: tottus
+    familia:      frutas
+    slug:         paltas-y-frutas-nativas
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16991/Paltas-y-Frutas-Nativas
+  - supermercado: tottus
+    familia:      frutas
+    slug:         platanos-papayas-pinas-y-tropicales
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16986/Platanos--Papayas--Pinas-y-Tropicales
+  - supermercado: tottus
+    familia:      verduras
+    slug:         apio-esparragos-y-pimientos
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16981/Apio--Esparragos-y-Pimientos
+  - supermercado: tottus
+    familia:      verduras
+    slug:         arvejas-vainitas-y-habas
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16979/Arvejas--Vainitas-y-Habas
+  - supermercado: tottus
+    familia:      verduras
+    slug:         brocoli-col-coliflor-y-alcachofa
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16982/Brocoli--Col--Coliflor-y-Alcachofa
+  - supermercado: tottus
+    familia:      verduras
+    slug:         cebolla-tomate-ajo-y-ajies
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16978/Cebolla--Tomate--Ajo-y-Ajies
+  - supermercado: tottus
+    familia:      verduras
+    slug:         choclo-zanahoria-pepinos-y-beterragas
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16980/Choclo--Zanahoria--Pepinos-y-Beterragas
+  - supermercado: tottus
+    familia:      verduras
+    slug:         lechugas-espinacas-y-hojas
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16985/Lechugas--Espinacas-y-Hojas
+  - supermercado: tottus
+    familia:      verduras
+    slug:         organicos-y-verduras-baby
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG10160/Organicos-y-Verduras-Baby
+  - supermercado: tottus
+    familia:      verduras
+    slug:         papas-y-camotes
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16977/Papas-y-Camotes
+  - supermercado: tottus
+    familia:      verduras
+    slug:         zapallos-berenjenas-y-caihuas
+    url:          https://www.tottus.com.pe/tottus-pe/lista/CATG16989/Zapallos--Berenjenas-y-Caihuas
+
+  # ── WONG (7 categorías) ──────────────────
+  - supermercado: wong
+    familia:      res
+    slug:         cortes-premium
+    url:          https://www.wong.pe/carnes-aves-y-pescados/res-y-otras-carnes/cortes-premium
+  - supermercado: wong
+    familia:      res
+    slug:         res-y-otras-carnes
+    url:          https://www.wong.pe/carnes-aves-y-pescados/res-y-otras-carnes
+  - supermercado: wong
+    familia:      pollo
+    slug:         aves-y-huevos
+    url:          https://www.wong.pe/carnes-aves-y-pescados/aves-y-huevos
+  - supermercado: wong
+    familia:      cerdo
+    slug:         cerdo
+    url:          https://www.wong.pe/carnes-aves-y-pescados/cerdo
+  - supermercado: wong
+    familia:      parrilla
+    slug:         hamburguesas-y-apanados
+    url:          https://www.wong.pe/carnes-aves-y-pescados/hamburguesas-y-apanados
+  - supermercado: wong
+    familia:      frutas
+    slug:         frutas
+    url:          https://www.wong.pe/frutas-y-verduras/frutas
+  - supermercado: wong
+    familia:      verduras
+    slug:         verduras
+    url:          https://www.wong.pe/frutas-y-verduras/verduras
+
+  # ── METRO (8 categorías) ──────────────────
+  - supermercado: metro
+    familia:      res
+    slug:         cortes-premium
+    url:          https://www.metro.pe/carnes-aves-y-pescados/res-y-otras-carnes/cortes-premium
+  - supermercado: metro
+    familia:      res
+    slug:         res-y-otras-carnes
+    url:          https://www.metro.pe/carnes-aves-y-pescados/res-y-otras-carnes
+  - supermercado: metro
+    familia:      pollo
+    slug:         aves-y-huevos
+    url:          https://www.metro.pe/carnes-aves-y-pescados/aves-y-huevos
+  - supermercado: metro
+    familia:      cerdo
+    slug:         cerdo
+    url:          https://www.metro.pe/carnes-aves-y-pescados/cerdo
+  - supermercado: metro
+    familia:      parrilla
+    slug:         hamburguesas-y-apanados
+    url:          https://www.metro.pe/carnes-aves-y-pescados/hamburguesas-y-apanados
+  - supermercado: metro
+    familia:      pescados
+    slug:         pescados-y-mariscos
+    url:          https://www.metro.pe/carnes-aves-y-pescados/pescados-y-mariscos
+  - supermercado: metro
+    familia:      frutas
+    slug:         frutas
+    url:          https://www.metro.pe/frutas-y-verduras/frutas
+  - supermercado: metro
+    familia:      verduras
+    slug:         verduras
+    url:          https://www.metro.pe/frutas-y-verduras/verduras
+
+  # ── PLAZAVEA (40 categorías) ──────────────────
+  - supermercado: plazavea
+    familia:      res
+    slug:         carne-molida-de-res
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/res/carne-molida-de-res
+  - supermercado: plazavea
+    familia:      res
+    slug:         cortes-caseros-de-res
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/res/cortes-caseros-de-res
+  - supermercado: plazavea
+    familia:      res
+    slug:         cortes-parrilleros-de-res
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/res/cortes-parrilleros-de-res
+  - supermercado: plazavea
+    familia:      res
+    slug:         elaborados-de-res
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/res/elaborados-de-res
+  - supermercado: plazavea
+    familia:      res
+    slug:         menudencias-de-res
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/res/menudencias-de-res
+  - supermercado: plazavea
+    familia:      pollo
+    slug:         elaborados-de-pollo
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/pollo/elaborados-de-pollo
+  - supermercado: plazavea
+    familia:      pollo
+    slug:         menudencias-de-pollo
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/pollo/menudencias-de-pollo
+  - supermercado: plazavea
+    familia:      pollo
+    slug:         pollo-entero
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/pollo/pollo-entero
+  - supermercado: plazavea
+    familia:      cerdo
+    slug:         cortes-caseros-de-cerdo
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/cerdo/cortes-caseros-de-cerdo
+  - supermercado: plazavea
+    familia:      cerdo
+    slug:         cortes-parrilleros-de-cerdo
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/cerdo/cortes-parrilleros-de-cerdo
+  - supermercado: plazavea
+    familia:      cerdo
+    slug:         elaborados-de-cerdo
+    url:          https://www.plazavea.com.pe/carnes-aves-y-pescados/cerdo/elaborados-de-cerdo
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         chirimoya-lucuma-carambola-y-otras
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/chirimoya-lucuma-carambola-y-otras
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         fresa-arandano-aguaymanto-y-otros-berries
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/fresa-arandano-aguaymanto-y-otros-berries
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         frutas-congeladas
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/frutas-congeladas
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         frutas-picadas-y-preparadas
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/frutas-picadas-y-preparadas
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         jugos-naturales
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/jugos-naturales
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         manzana-pera-y-membrillo
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/manzana-pera-y-membrillo
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         maracuya-granadilla-tuna-y-tumbo
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/maracuya-granadilla-tuna-y-tumbo
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         melocoton-durazno-y-mango
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/melocoton-durazno-y-mango
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         naranja-mandarina-y-otros-citricos
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/naranja-mandarina-y-otros-citricos
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         paltas
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/paltas
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         papaya-y-pina
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/papaya-y-pina
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         platano-y-uva
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/platano-y-uva
+  - supermercado: plazavea
+    familia:      frutas
+    slug:         sandia-y-melon
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/frutas/sandia-y-melon
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         apio-esparrago-y-otros-tallos
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/apio-esparrago-y-otros-tallos
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         arveja-vainita-haba-y-otras-legumbres
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/arveja-vainita-haba-y-otras-legumbres
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         brocoli-coliflor-alcachofa-y-col
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/brocoli-coliflor-alcachofa-y-col
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         cebolla-ajo-rocoto-y-aji
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/cebolla-ajo-rocoto-y-aji
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         choclo
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/choclo
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         ensaladas-y-verduras-picadas
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/ensaladas-y-verduras-picadas
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         hierbas-e-infusiones
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/hierbas-e-infusiones
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         hongos-setas-y-germinados
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/hongos-setas-y-germinados
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         lechuga-espinaca-y-hojas-verdes
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/lechuga-espinaca-y-hojas-verdes
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         limon
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/limon
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         papa-camote-yuca-y-otros-tuberculos
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/papa-camote-yuca-y-otros-tuberculos
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         tomate-pepino-y-pimiento
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/tomate-pepino-y-pimiento
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         verduras-congeladas
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/verduras-congeladas
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         verduras-orientales
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/verduras-orientales
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         zanahoria-beterraga-rabanito-y-otras-raices
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/zanahoria-beterraga-rabanito-y-otras-raices
+  - supermercado: plazavea
+    familia:      verduras
+    slug:         zapallo-berenjena-y-caigua
+    url:          https://www.plazavea.com.pe/frutas-y-verduras/verduras/zapallo-berenjena-y-caigua

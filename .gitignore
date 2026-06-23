@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.tmp/
+data/snapshots/
+data/historico_normalizado.xlsx
+service_account*.json
+oauth_client.json
+authorized_user.json
+.streamlit/secrets.toml
