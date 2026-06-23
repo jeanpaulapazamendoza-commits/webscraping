@@ -21,6 +21,7 @@ import streamlit as st
 import altair as alt
 
 from historico_io import cargar_historico
+from normalizar import normalizar_df
 
 st.set_page_config(
     page_title="Precios Supermercados Perú",
@@ -253,9 +254,20 @@ with tab5:
         f"historico_{fecha_ini}.csv" if fecha_ini == fecha_fin
         else f"historico_{fecha_ini}_a_{fecha_fin}.csv"
     )
+
+    # Normaliza solo lo que se descarga (no afecta filtros ni graficos del dashboard):
+    # nombres de columna en espanol, slugs legibles, Si/No, limpieza de NBSP/comillas.
+    # utf-8-sig anade el BOM para que Excel en Windows muestre la N y los acentos
+    # correctamente, sin simbolos raros.
+    if export_df.empty:
+        datos_csv = b""
+    else:
+        export_norm = normalizar_df(export_df)
+        datos_csv = export_norm.to_csv(index=False).encode("utf-8-sig")
+
     st.download_button(
         "⬇️ Descargar CSV",
-        data=export_df.to_csv(index=False).encode("utf-8"),
+        data=datos_csv,
         file_name=nombre_archivo,
         mime="text/csv",
         disabled=export_df.empty,
