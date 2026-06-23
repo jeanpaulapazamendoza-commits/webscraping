@@ -111,11 +111,12 @@ col4.metric("Precio máx (S/)", f"{ultima_fecha_por_prod['precio_descuento'].max
 
 # ── Tab 1: Snapshot actual ─────────────────────────────────────────────────
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📋 Snapshot actual",
     "📊 Distribución",
     "🏷️ Top descuentos",
     "📈 Evolución temporal",
+    "📅 Histórico y exportar",
 ])
 
 with tab1:
@@ -221,6 +222,44 @@ with tab4:
             .properties(height=400)
         )
         st.altair_chart(line, use_container_width=True)
+
+with tab5:
+    st.subheader("Fechas disponibles en el histórico")
+    resumen_fechas = (
+        dff.assign(fecha=dff["fecha_extraccion"].dt.date)
+           .groupby("fecha")
+           .agg(productos=("producto_id", "nunique"), filas=("producto_id", "size"))
+           .reset_index()
+           .sort_values("fecha", ascending=False)
+           .rename(columns={"fecha": "Fecha", "productos": "Productos únicos", "filas": "Filas"})
+    )
+    st.dataframe(resumen_fechas, use_container_width=True, hide_index=True)
+    st.caption(f"{len(resumen_fechas)} fecha(s) de extracción con los filtros actuales del sidebar.")
+
+    st.divider()
+
+    st.subheader("Exportar a CSV por rango de fechas")
+    fechas_extraccion = dff["fecha_extraccion"].dt.date
+    fecha_min, fecha_max = fechas_extraccion.min(), fechas_extraccion.max()
+
+    col_a, col_b = st.columns(2)
+    fecha_ini = col_a.date_input("Desde", value=fecha_min, min_value=fecha_min, max_value=fecha_max)
+    fecha_fin = col_b.date_input("Hasta", value=fecha_max, min_value=fecha_min, max_value=fecha_max)
+
+    export_df = dff[(fechas_extraccion >= fecha_ini) & (fechas_extraccion <= fecha_fin)]
+    st.caption(f"{len(export_df):,} filas seleccionadas (del {fecha_ini} al {fecha_fin}).")
+
+    nombre_archivo = (
+        f"historico_{fecha_ini}.csv" if fecha_ini == fecha_fin
+        else f"historico_{fecha_ini}_a_{fecha_fin}.csv"
+    )
+    st.download_button(
+        "⬇️ Descargar CSV",
+        data=export_df.to_csv(index=False).encode("utf-8"),
+        file_name=nombre_archivo,
+        mime="text/csv",
+        disabled=export_df.empty,
+    )
 
 
 # ── Footer ──────────────────────────────────────────────────────────────────
