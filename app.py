@@ -206,23 +206,97 @@ with tab4:
         default=list(productos_opciones.keys())[:3] if productos_opciones else [],
     )
 
+    # (G) Aviso preventivo de saturación: más de ~8 líneas se vuelve ilegible.
+    if len(seleccionados) > 8:
+        st.warning(
+            f"Seleccionaste {len(seleccionados)} productos. Con más de 8 líneas "
+            "el gráfico se satura y cuesta distinguirlas. Te recomiendo comparar "
+            "de a pocos, o usar la leyenda para aislar una serie."
+        )
+
     if seleccionados:
         mask = dff.set_index(["supermercado", "producto_id"]).index.isin(seleccionados)
-        evol = dff[mask]
-        line = (
-            alt.Chart(evol)
-            .mark_line(point=True)
-            .encode(
-                x=alt.X("fecha_extraccion:T", title="Fecha"),
-                y=alt.Y("precio_descuento:Q", title="Precio (S/)",
-                        scale=alt.Scale(zero=False)),
-                color=alt.Color("nombre:N", title="Producto"),
-                tooltip=["nombre", "fecha_extraccion:T",
-                         "precio_descuento", "precio_regular"],
-            )
-            .properties(height=400)
+        # Copia para no mutar dff; etiqueta "super · producto" como identidad de serie.
+        evol = dff[mask].copy()
+        evol["serie"] = evol["supermercado"] + " · " + evol["nombre"]
+
+        # (F) Selección interactiva: clic en la leyenda para aislar/resaltar una serie.
+        sel_serie = alt.selection_point(fields=["serie"], bind="legend")
+
+        # (E) Fechas del eje X en español y formato día-mes legible.
+        eje_x = alt.X(
+            "fecha_extraccion:T",
+            title="Fecha",
+            axis=alt.Axis(format="%d %b", labelAngle=0),
         )
-        st.altair_chart(line, use_container_width=True)
+        eje_y = alt.Y(
+            "precio_descuento:Q",
+            title="Precio (S/)",
+            scale=alt.Scale(zero=False),
+        )
+
+        # (A) Paleta categórica de alto contraste (tableau10, colorblind-friendly).
+        # (B) El color mapea la etiqueta completa "super · producto", no solo el nombre;
+        #     leyenda horizontal abajo, con más ancho de etiqueta para no truncar.
+        color = alt.Color(
+            "serie:N",
+            title="Producto (supermercado · nombre)",
+            scale=alt.Scale(scheme="tableau10"),
+            legend=alt.Legend(
+                orient="bottom",
+                columns=2,
+                labelLimit=420,
+                symbolType="stroke",
+                titleLimit=400,
+            ),
+        )
+
+        # (D) Segunda señal visual: forma del punto según supermercado, para
+        #     distinguir series aunque dos colores se parezcan.
+        shape = alt.Shape("supermercado:N", title="Supermercado")
+
+        # (C) Tooltip enriquecido y en español, con formato de moneda y fecha.
+        tooltip = [
+            alt.Tooltip("serie:N", title="Producto"),
+            alt.Tooltip("supermercado:N", title="Supermercado"),
+            alt.Tooltip("fecha_extraccion:T", title="Fecha", format="%d %b %Y"),
+            alt.Tooltip("precio_descuento:Q", title="Precio (S/)", format=".2f"),
+            alt.Tooltip("precio_regular:Q", title="Precio regular (S/)", format=".2f"),
+        ]
+        if "descuento_pct" in evol.columns:
+            tooltip.append(
+                alt.Tooltip("descuento_pct:Q", title="Descuento", format=".1f")
+            )
+
+        # Opacidad ligada a la selección: la serie elegida resalta, el resto se atenúa.
+        opacidad = alt.condition(sel_serie, alt.value(1.0), alt.value(0.15))
+
+        base = alt.Chart(evol).encode(
+            x=eje_x,
+            y=eje_y,
+            color=color,
+            opacity=opacidad,
+            tooltip=tooltip,
+        )
+
+        lineas = base.mark_line(strokeWidth=2.5).encode(
+            detail="serie:N",
+        )
+        puntos = base.mark_point(size=70, filled=True).encode(
+            shape=shape,
+        )
+
+        chart = (
+            (lineas + puntos)
+            .add_params(sel_serie)
+            .properties(height=460)
+            .interactive()  # zoom/pan con rueda y arrastre
+        )
+        st.altair_chart(chart, use_container_width=True)
+        st.caption(
+            "Tip: clic en un producto de la leyenda para aislarlo · "
+            "rueda o arrastre para hacer zoom · doble clic para resetear."
+        )
 
 with tab5:
     st.subheader("Fechas disponibles en el histórico")
