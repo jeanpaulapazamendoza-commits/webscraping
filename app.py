@@ -216,9 +216,28 @@ with tab4:
 
     if seleccionados:
         mask = dff.set_index(["supermercado", "producto_id"]).index.isin(seleccionados)
-        # Copia para no mutar dff; etiqueta "super · producto" como identidad de serie.
+        # Copia para no mutar dff.
         evol = dff[mask].copy()
-        evol["serie"] = evol["supermercado"] + " · " + evol["nombre"]
+
+        # Identidad ESTABLE de la serie: (supermercado, producto_id). No usamos el
+        # nombre para agrupar, porque un supermercado puede RENOMBRAR el mismo
+        # articulo con el tiempo (p.ej. Tottus paso "Palta Fuerte x Kg" a
+        # "Palta Fuerte Sin Madurar x Kg"): si agrupamos por nombre, un solo
+        # producto se parte en dos lineas de distinto color. La clave por id
+        # garantiza una linea continua por producto.
+        evol["serie_id"] = (
+            evol["supermercado"] + "|" + evol["producto_id"].astype(str)
+        )
+        # Etiqueta visible = "super · nombre ACTUAL" (el nombre de la fecha mas
+        # reciente de cada producto), para que la leyenda muestre el nombre vigente.
+        nombre_actual = (
+            evol.sort_values("fecha_extraccion")
+            .groupby("serie_id")["nombre"]
+            .last()
+        )
+        evol["serie"] = (
+            evol["supermercado"] + " · " + evol["serie_id"].map(nombre_actual)
+        )
 
         # (F) Selección interactiva: clic en la leyenda para aislar/resaltar una serie.
         sel_serie = alt.selection_point(fields=["serie"], bind="legend")
@@ -256,16 +275,34 @@ with tab4:
         shape = alt.Shape("supermercado:N", title="Supermercado")
 
         # (C) Tooltip enriquecido y en español, con formato de moneda y fecha.
+        #     Muestra los TRES niveles de precio de la ficha cuando existen:
+        #       - precio_tarjeta  = precio con tarjeta del super (p.ej. CMR)
+        #       - precio_regular  = precio internet/online sin tarjeta
+        #       - precio_normal   = precio de lista original (el tachado, p.ej. 13.45)
+        #     Antes solo se veian descuento y regular, y el "normal" (13.45) se perdia.
+        #     Cada campo se agrega solo si la columna existe, para no romper con VTEX
+        #     (Wong/Metro/Plaza Vea) que a veces no traen los tres niveles.
         tooltip = [
             alt.Tooltip("serie:N", title="Producto"),
             alt.Tooltip("supermercado:N", title="Supermercado"),
             alt.Tooltip("fecha_extraccion:T", title="Fecha", format="%d %b %Y"),
-            alt.Tooltip("precio_descuento:Q", title="Precio (S/)", format=".2f"),
-            alt.Tooltip("precio_regular:Q", title="Precio regular (S/)", format=".2f"),
+            alt.Tooltip("precio_descuento:Q", title="Precio efectivo (S/)", format=".2f"),
         ]
+        if "precio_tarjeta" in evol.columns:
+            tooltip.append(
+                alt.Tooltip("precio_tarjeta:Q", title="Precio con tarjeta (S/)", format=".2f")
+            )
+        if "precio_regular" in evol.columns:
+            tooltip.append(
+                alt.Tooltip("precio_regular:Q", title="Precio regular (S/)", format=".2f")
+            )
+        if "precio_normal" in evol.columns:
+            tooltip.append(
+                alt.Tooltip("precio_normal:Q", title="Precio normal / lista (S/)", format=".2f")
+            )
         if "descuento_pct" in evol.columns:
             tooltip.append(
-                alt.Tooltip("descuento_pct:Q", title="Descuento", format=".1f")
+                alt.Tooltip("descuento_pct:Q", title="Descuento %", format=".1f")
             )
 
         # Opacidad ligada a la selección: la serie elegida resalta, el resto se atenúa.
