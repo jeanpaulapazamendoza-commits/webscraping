@@ -206,6 +206,18 @@ with tab4:
         default=list(productos_opciones.keys())[:3] if productos_opciones else [],
     )
 
+    # (G) Selector de vista: "Superpuesto" (todas las series en un panel, compacto)
+    # vs "Separado" (small multiples: un mini-panel por producto, sin solapamiento).
+    # Util cuando dos productos tienen el mismo precio y sus lineas se pisan.
+    modo_vista = st.radio(
+        "Ver",
+        options=["Superpuesto", "Separado"],
+        horizontal=True,
+        help="Superpuesto: comparacion compacta en un solo grafico. "
+             "Separado: un panel por producto, ideal cuando los precios coinciden "
+             "y las lineas se superponen.",
+    )
+
     # (G) Aviso preventivo de saturación: más de ~8 líneas se vuelve ilegible.
     if len(seleccionados) > 8:
         st.warning(
@@ -274,6 +286,13 @@ with tab4:
         #     distinguir series aunque dos colores se parezcan.
         shape = alt.Shape("supermercado:N", title="Supermercado")
 
+        # (C) Estilo de linea distinto por serie (solida, guiones, puntos...). Cuando
+        #     dos lineas se solapan por tener el mismo precio, el patron de guiones
+        #     deja "ver" la de abajo a traves de los huecos, haciendo perceptible que
+        #     hay dos series en el mismo trazo.
+        dash = alt.StrokeDash("serie:N", title="Producto (supermercado · nombre)",
+                              legend=None)
+
         # (C) Tooltip enriquecido y en español, con formato de moneda y fecha.
         #     Muestra los TRES niveles de precio de la ficha cuando existen:
         #       - precio_tarjeta  = precio con tarjeta del super (p.ej. CMR)
@@ -305,35 +324,73 @@ with tab4:
                 alt.Tooltip("descuento_pct:Q", title="Descuento %", format=".1f")
             )
 
-        # Opacidad ligada a la selección: la serie elegida resalta, el resto se atenúa.
-        opacidad = alt.condition(sel_serie, alt.value(1.0), alt.value(0.15))
-
-        base = alt.Chart(evol).encode(
-            x=eje_x,
-            y=eje_y,
-            color=color,
-            opacity=opacidad,
-            tooltip=tooltip,
-        )
-
-        lineas = base.mark_line(strokeWidth=2.5).encode(
-            detail="serie:N",
-        )
-        puntos = base.mark_point(size=70, filled=True).encode(
-            shape=shape,
-        )
-
-        chart = (
-            (lineas + puntos)
-            .add_params(sel_serie)
-            .properties(height=460)
-            .interactive()  # zoom/pan con rueda y arrastre
-        )
-        st.altair_chart(chart, use_container_width=True)
-        st.caption(
-            "Tip: clic en un producto de la leyenda para aislarlo · "
-            "rueda o arrastre para hacer zoom · doble clic para resetear."
-        )
+        if modo_vista == "Superpuesto":
+            # Vista compacta: todas las series en un panel. Opacidad ligada a la
+            # seleccion (clic en leyenda) para resaltar una serie; estilo de linea
+            # (C) para percibir solapamientos.
+            opacidad = alt.condition(sel_serie, alt.value(1.0), alt.value(0.15))
+            base = alt.Chart(evol).encode(
+                x=eje_x,
+                y=eje_y,
+                color=color,
+                opacity=opacidad,
+                tooltip=tooltip,
+            )
+            lineas = base.mark_line(strokeWidth=2.5).encode(
+                detail="serie:N",
+                strokeDash=dash,
+            )
+            puntos = base.mark_point(size=70, filled=True).encode(
+                shape=shape,
+            )
+            chart = (
+                (lineas + puntos)
+                .add_params(sel_serie)
+                .properties(height=460)
+                .interactive()  # zoom/pan con rueda y arrastre
+            )
+            st.altair_chart(chart, use_container_width=True)
+            st.caption(
+                "Tip: clic en un producto de la leyenda para aislarlo · "
+                "rueda o arrastre para hacer zoom · doble clic para resetear · "
+                "cambia a \"Separado\" si dos lineas se superponen."
+            )
+        else:
+            # (E) Small multiples: un mini-panel por producto. Nunca hay
+            # solapamiento porque cada serie tiene su propio espacio. Todos los
+            # paneles comparten la misma escala Y para que la comparacion sea justa.
+            n_series = evol["serie"].nunique()
+            columnas = 1 if n_series <= 3 else 2
+            base_sm = alt.Chart(evol).encode(
+                x=eje_x,
+                y=eje_y,
+                color=alt.Color("serie:N", scale=alt.Scale(scheme="tableau10"),
+                                legend=None),
+                tooltip=tooltip,
+            )
+            lineas_sm = base_sm.mark_line(strokeWidth=2.5)
+            puntos_sm = base_sm.mark_point(size=55, filled=True)
+            # Ancho por panel: un panel ancho si hay 1 columna, mas angosto si hay 2.
+            # Numerico (no "container") para que el facet con columnas sea predecible.
+            ancho_panel = 640 if columnas == 1 else 320
+            chart = (
+                (lineas_sm + puntos_sm)
+                .properties(height=220, width=ancho_panel)
+                .facet(
+                    facet=alt.Facet("serie:N", title=None,
+                                    header=alt.Header(labelFontSize=13,
+                                                      labelFontWeight="bold",
+                                                      labelLimit=500)),
+                    columns=columnas,
+                )
+                .resolve_scale(y="shared")
+            )
+            st.altair_chart(chart, use_container_width=True)
+            st.caption(
+                "Cada panel es un producto, todos con la misma escala de precios "
+                "para comparar de un vistazo · vuelve a \"Superpuesto\" para la "
+                "vista compacta."
+            )
 
 with tab5:
     st.subheader("Fechas disponibles en el histórico")
