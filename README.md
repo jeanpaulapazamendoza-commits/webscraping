@@ -48,6 +48,20 @@ python scrape_all.py --no-sheets           # sin exportar a Google Sheets
 python scrape_all.py --excel               # además generar el XLSX local
 ```
 
+## Tests
+
+Pruebas de humo del dashboard: corren `app.py` entera con el harness oficial de
+Streamlit, sin levantar servidor, contra el histórico real del repo.
+
+```bash
+python tests/test_dashboard.py      # sin instalar nada
+python -m pytest tests/             # si tenés pytest
+```
+
+Cubren los casos que ya rompieron la app: filtros que no dejan ninguna fila,
+que el snapshot sea del último día y no de la última vez que se vio cada
+producto, y que el contador del encabezado cuente días y no timestamps.
+
 ## Setup
 
 ### 1. Google Sheets (entregable en la nube)

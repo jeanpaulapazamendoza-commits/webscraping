@@ -1,0 +1,9 @@
+# Tema fijo del dashboard. Sin esto la app hereda el tema claro u oscuro del
+# navegador de cada visitante, y los colores de los gráficos de Altair —que no
+# cambian— terminan sobre fondos distintos según quién la abra.
+[theme]
+base = "light"
+primaryColor = "#04706A"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F4F3"
+textColor = "#111A1B"

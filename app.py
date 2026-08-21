@@ -29,12 +29,21 @@ st.set_page_config(
     layout="wide",
 )
 
+# Altair rechaza por defecto cualquier gráfico de más de 5.000 filas. El snapshot
+# diario ronda las 3.500 y crece con el catálogo, así que fijamos un techo
+# explícito en vez de descubrir el MaxRowsError en producción. Aun así, a cada
+# gráfico le pasamos solo las columnas que dibuja (ver tab2/tab3/tab4): Altair
+# serializa a JSON todo lo que reciba, y mandarle las 20 columnas del histórico
+# infla la página sin ningún beneficio.
+alt.data_transformers.enable("default", max_rows=50_000)
+
 # ── Carga de datos ──────────────────────────────────────────────────────────
 
-COLS_NUMERICAS = [
-    "precio_tarjeta", "tarjeta_descuento_pct", "precio_internet",
-    "precio_normal", "precio_descuento", "precio_regular", "descuento_pct",
+COLS_PRECIO = [
+    "precio_tarjeta", "precio_internet", "precio_normal",
+    "precio_descuento", "precio_regular",
 ]
+COLS_NUMERICAS = COLS_PRECIO + ["tarjeta_descuento_pct", "descuento_pct"]
 
 
 @st.cache_data(ttl=3600)
@@ -47,7 +56,21 @@ def cargar_datos() -> pd.DataFrame:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
     df["tiene_descuento"] = df["tiene_descuento"] == "True"
+
+    # VTEX publica Price = 0 cuando el producto está en catálogo pero sin precio
+    # (casi siempre por falta de stock): 0,9% del histórico, y 2.161 de esas
+    # 2.175 filas son de Plaza Vea. Cero no es un precio, así que lo pasamos a
+    # nulo: si no, el KPI de precio mínimo muestra "S/ 0.00" y los promedios y
+    # boxplots quedan arrastrados hacia abajo por productos que no se venden.
+    for c in COLS_PRECIO:
+        if c in df.columns:
+            df.loc[df[c] <= 0, c] = float("nan")
     return df
+
+
+def soles(v) -> str:
+    """Precio para un KPI. Devuelve un guión si no hay dato, en vez de 'nan'."""
+    return f"{v:.2f}" if pd.notna(v) else "—"
 
 
 df = cargar_datos()
@@ -74,7 +97,11 @@ if "familia" in df.columns:
 # Categoría detalle: la subcategoría específica de cada sitio
 cats = sorted(df["categoria"].unique())
 with st.sidebar.expander("Categoría detalle", expanded=False):
-    cat_sel = st.multiselect("", cats, default=cats, label_visibility="collapsed")
+    # El label va oculto (el expander ya dice "Categoría detalle") pero no puede
+    # ir vacío: Streamlit lo desaconseja por accesibilidad y avisa que en el
+    # futuro va a ser un error.
+    cat_sel = st.multiselect("Categoría detalle", cats, default=cats,
+                             label_visibility="collapsed")
 
 solo_descuento = st.sidebar.checkbox("Solo con descuento", value=False)
 
@@ -85,29 +112,59 @@ if familia_sel is not None:
 if solo_descuento:
     dff = dff[dff["tiene_descuento"]]
 
-# El "snapshot actual" = última fecha de cada producto
-ultima_fecha_por_prod = (
-    dff.sort_values("fecha_extraccion")
-       .groupby(["supermercado", "producto_id"])
-       .tail(1)
+# Si los filtros no dejan ninguna fila, cortamos acá con un mensaje. Sin esto,
+# el .max() sobre una columna de fechas vacía devuelve NaT y el formateo del
+# subtítulo revienta con "NaTType does not support strftime" — un stack trace
+# en pantalla apenas alguien deselecciona todos los supermercados.
+if dff.empty:
+    st.title("🛒 Precios Supermercados Perú")
+    st.warning(
+        "Ningún producto coincide con los filtros actuales. Volvé a activar al "
+        "menos un supermercado, una familia y una categoría en el panel de la "
+        "izquierda."
+    )
+    st.stop()
+
+# El "snapshot actual" es la foto del último día CON datos dentro de los filtros,
+# no la última fila de cada producto visto alguna vez: un producto que salió del
+# catálogo en junio no debe seguir aportando su precio de junio a los KPIs de hoy.
+fecha_snapshot = dff["fecha_extraccion"].dt.date.max()
+filas_del_dia  = dff[dff["fecha_extraccion"].dt.date == fecha_snapshot]
+
+# Dentro de una misma corrida un producto puede venir dos veces, porque la
+# búsqueda por path de VTEX incluye las subcategorías: los de 'cortes-premium'
+# reaparecen dentro de 'res-y-otras-carnes'. Nos quedamos con su última lectura.
+snapshot_actual = (
+    filas_del_dia.sort_values("fecha_extraccion")
+                 .groupby(["supermercado", "producto_id"], as_index=False)
+                 .tail(1)
 )
-n_snapshots = dff["fecha_extraccion"].nunique()
+
+# Días distintos, no timestamps: cada categoría se scrapea en su propio segundo,
+# así que contar 'fecha_extraccion' a secas daba miles de "snapshots" en vez de
+# los días de histórico que el usuario espera leer.
+n_dias = dff["fecha_extraccion"].dt.date.nunique()
 
 
 # ── Header ──────────────────────────────────────────────────────────────────
 
 st.title("🛒 Precios Supermercados Perú")
-st.caption(f"Histórico de {n_snapshots} snapshots · "
-           f"última actualización: {dff['fecha_extraccion'].max():%Y-%m-%d %H:%M}")
+st.caption(
+    f"{n_dias} día{'s' if n_dias != 1 else ''} de histórico · "
+    f"snapshot del {fecha_snapshot:%d/%m/%Y} con {len(snapshot_actual):,} productos"
+)
 
 
 # ── KPIs ────────────────────────────────────────────────────────────────────
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Productos únicos", f"{ultima_fecha_por_prod['producto_id'].nunique():,}")
-col2.metric("Con descuento", f"{ultima_fecha_por_prod['tiene_descuento'].sum():,}")
-col3.metric("Precio mín (S/)", f"{ultima_fecha_por_prod['precio_descuento'].min():.2f}")
-col4.metric("Precio máx (S/)", f"{ultima_fecha_por_prod['precio_descuento'].max():.2f}")
+# Cada fila del snapshot ya es un producto de un supermercado. Contar
+# producto_id a secas se comía 352: Wong y Metro corren sobre el mismo catálogo
+# VTEX y reciclan IDs — el 10476 es "Pecana Pelada x kg" en los dos.
+col1.metric("Productos únicos", f"{len(snapshot_actual):,}")
+col2.metric("Con descuento", f"{snapshot_actual['tiene_descuento'].sum():,}")
+col3.metric("Precio mín (S/)", soles(snapshot_actual["precio_descuento"].min()))
+col4.metric("Precio máx (S/)", soles(snapshot_actual["precio_descuento"].max()))
 
 
 # ── Tab 1: Snapshot actual ─────────────────────────────────────────────────
@@ -125,11 +182,11 @@ with tab1:
     cols_show = ["supermercado", "familia", "categoria", "nombre", "marca",
                  "precio_descuento", "precio_regular", "descuento_pct",
                  "tiene_descuento", "url"]
-    cols_show = [c for c in cols_show if c in ultima_fecha_por_prod.columns]
+    cols_show = [c for c in cols_show if c in snapshot_actual.columns]
     st.dataframe(
-        ultima_fecha_por_prod[cols_show]
+        snapshot_actual[cols_show]
             .sort_values(["supermercado", "categoria", "precio_descuento"]),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "url": st.column_config.LinkColumn("Link"),
@@ -140,10 +197,11 @@ with tab1:
     )
 
 with tab2:
-    eje_x_col = "familia" if "familia" in ultima_fecha_por_prod.columns else "categoria"
+    eje_x_col = "familia" if "familia" in snapshot_actual.columns else "categoria"
     st.subheader(f"Distribución de precios por supermercado y {eje_x_col}")
+    datos_dist = snapshot_actual[["supermercado", eje_x_col, "precio_descuento"]]
     chart = (
-        alt.Chart(ultima_fecha_por_prod)
+        alt.Chart(datos_dist)
         .mark_boxplot(extent="min-max")
         .encode(
             x=alt.X(f"{eje_x_col}:N", title=eje_x_col.capitalize()),
@@ -153,14 +211,16 @@ with tab2:
         )
         .properties(height=400)
     )
-    st.altair_chart(chart, use_container_width=False)
+    st.altair_chart(chart, width="content")
 
 with tab3:
     st.subheader("Top 20 descuentos del snapshot actual")
+    cols_top = ["nombre", "supermercado", "precio_descuento",
+                "precio_regular", "descuento_pct"]
     top = (
-        ultima_fecha_por_prod[ultima_fecha_por_prod["tiene_descuento"]]
+        snapshot_actual[snapshot_actual["tiene_descuento"]]
             .sort_values("descuento_pct", ascending=False)
-            .head(20)
+            .head(20)[cols_top]
     )
     if top.empty:
         st.info("No hay productos con descuento en los filtros actuales.")
@@ -177,22 +237,22 @@ with tab3:
             )
             .properties(height=500)
         )
-        st.altair_chart(bars, use_container_width=True)
+        st.altair_chart(bars, width="stretch")
 
 with tab4:
     st.subheader("Evolución de precio por producto")
 
-    if n_snapshots < 2:
+    if n_dias < 2:
         st.info(
-            "Necesitás al menos 2 snapshots para ver evolución. "
-            f"Actualmente hay {n_snapshots}. "
+            "Necesitás al menos 2 días de histórico para ver evolución. "
+            f"Actualmente hay {n_dias}. "
             "Después de la segunda corrida del scraper, este gráfico se llenará."
         )
         st.divider()
         st.caption("Vista previa de cómo se verá:")
 
     productos_opciones = (
-        ultima_fecha_por_prod.assign(
+        snapshot_actual.assign(
             label=lambda d: d["supermercado"] + " · " + d["nombre"]
         )
         .set_index(["supermercado", "producto_id"])["label"]
@@ -250,6 +310,14 @@ with tab4:
         evol["serie"] = (
             evol["supermercado"] + " · " + evol["serie_id"].map(nombre_actual)
         )
+
+        # Igual que en Distribución: al gráfico solo le pasamos lo que dibuja o
+        # muestra en el tooltip, no las 20 columnas del histórico.
+        cols_evol = ["fecha_extraccion", "precio_descuento", "serie", "supermercado"]
+        cols_evol += [c for c in ("precio_tarjeta", "precio_regular",
+                                  "precio_normal", "descuento_pct")
+                      if c in evol.columns]
+        evol = evol[cols_evol]
 
         # (F) Selección interactiva: clic en la leyenda para aislar/resaltar una serie.
         sel_serie = alt.selection_point(fields=["serie"], bind="legend")
@@ -349,7 +417,7 @@ with tab4:
                 .properties(height=460)
                 .interactive()  # zoom/pan con rueda y arrastre
             )
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
             st.caption(
                 "Tip: clic en un producto de la leyenda para aislarlo · "
                 "rueda o arrastre para hacer zoom · doble clic para resetear · "
@@ -385,7 +453,7 @@ with tab4:
                 )
                 .resolve_scale(y="shared")
             )
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
             st.caption(
                 "Cada panel es un producto, todos con la misma escala de precios "
                 "para comparar de un vistazo · vuelve a \"Superpuesto\" para la "
@@ -402,7 +470,7 @@ with tab5:
            .sort_values("fecha", ascending=False)
            .rename(columns={"fecha": "Fecha", "productos": "Productos únicos", "filas": "Filas"})
     )
-    st.dataframe(resumen_fechas, use_container_width=True, hide_index=True)
+    st.dataframe(resumen_fechas, width="stretch", hide_index=True)
     st.caption(f"{len(resumen_fechas)} fecha(s) de extracción con los filtros actuales del sidebar.")
 
     st.divider()
