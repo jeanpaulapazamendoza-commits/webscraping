@@ -142,6 +142,24 @@ def actualizar_snapshot_y_resumen(spreadsheet):
     print(f"  {HOJA_RESUMEN}: {len(resumen)} filas")
 
 
+def alinear_a_cabecera(df: pd.DataFrame, cabecera: list[str]) -> tuple[pd.DataFrame, list[str]]:
+    """Devuelve (df reordenado a la cabecera, cabecera final).
+
+    append_rows() escribe POR POSICION, no por nombre: sube una lista de valores
+    y los pega en las columnas A, B, C... sin mirar los encabezados. Si el
+    esquema gana una columna en el medio, cada fila nueva entra corrida un lugar
+    a partir de ahi, en silencio y para siempre. Pasó exactamente eso al agregar
+    'Precio Unidad (S/)', que cae en la posición 12 de ORDEN_COLUMNAS.
+
+    Por eso alineamos por NOMBRE contra la cabecera real de la hoja, y las
+    columnas que la hoja todavía no tiene se agregan al FINAL: así las que ya
+    existen no se mueven de lugar y las filas viejas siguen siendo válidas.
+    """
+    nuevas = [c for c in df.columns if c not in cabecera]
+    cabecera_final = list(cabecera) + nuevas
+    return df.reindex(columns=cabecera_final), cabecera_final
+
+
 def append_historico_sheet(spreadsheet, rows: list[dict]):
     """Agrega SOLO las filas nuevas de la corrida actual a 'Histórico'.
     Nunca reescribe lo existente. Sin rotación automática: si la API rechaza
@@ -149,11 +167,32 @@ def append_historico_sheet(spreadsheet, rows: list[dict]):
     if not rows:
         return
     df_norm = normalizar_df(pd.DataFrame(rows))
-    valores = _df_a_valores(df_norm)
-
     ws = _hoja(spreadsheet, HOJA_HISTORICO)
-    primera_celda = ws.acell("A1").value
-    filas_a_subir = valores if not primera_celda else valores[1:]
+    cabecera = [c for c in ws.row_values(1) if c]
+
+    if not cabecera:
+        # Hoja vacía: esta corrida define la cabecera.
+        ws.append_rows(_df_a_valores(df_norm), value_input_option="USER_ENTERED")
+        print(f"  {HOJA_HISTORICO}: hoja nueva, +{len(df_norm)} filas")
+        return
+
+    df_alineado, cabecera_final = alinear_a_cabecera(df_norm, cabecera)
+    if cabecera_final != cabecera:
+        # El esquema crecio. Ampliamos la fila 1 ANTES de appendear; si no, las
+        # filas nuevas quedarian bajo nombres de columna que no les corresponden.
+        agregadas = cabecera_final[len(cabecera):]
+        ws.update([cabecera_final], "A1", value_input_option="USER_ENTERED")
+        print(f"  {HOJA_HISTORICO}: cabecera ampliada con {agregadas}")
+
+    df_alineado = df_alineado.where(pd.notna(df_alineado), "")
+    filas_a_subir = df_alineado.astype(str).values.tolist()
+
+    anchos = {len(f) for f in filas_a_subir}
+    if anchos != {len(cabecera_final)}:
+        raise RuntimeError(
+            f"Las filas no coinciden con la cabecera de '{HOJA_HISTORICO}': "
+            f"anchos {sorted(anchos)} contra {len(cabecera_final)} columnas"
+        )
 
     try:
         ws.append_rows(filas_a_subir, value_input_option="USER_ENTERED")
