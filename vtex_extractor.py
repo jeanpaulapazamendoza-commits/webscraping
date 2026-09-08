@@ -134,20 +134,23 @@ def fetch_pagina(host: str, path: str, page: int,
 
 # ── Detección de tarjeta (Plaza Vea Oh!) ────────────────────────────────────
 
-def detectar_tarjeta_oh(teasers: list, promo_teasers: list) -> tuple[str | None, float | None]:
+def detectar_descuento_oh(teasers: list, promo_teasers: list) -> tuple[str | None, float | None]:
     """Busca promos del ecosistema Oh! (Plaza Vea) en los teasers de VTEX.
 
-    Devuelve (nombre_tarjeta, descuento_pct) o (None, None) si no hay.
+    Devuelve (nombre_tarjeta, descuento_en_soles) o (None, None) si no hay.
 
     Heurística: cualquier teaser cuyo Name contenga "oh" (case-insensitive)
     se considera promoción Oh!. Si hay varias, se queda con la del descuento
     más alto.
 
-    El descuento se lee del parámetro PromotionalPriceTableItemsDiscount
-    (es una fracción 0-1, ej. 0.156 = 15.6%).
+    El valor sale del parámetro PromotionalPriceTableItemsDiscount y es un
+    MONTO EN SOLES, no una fracción 0-1. Leerlo como fracción hacía que un
+    "2.88" se interpretara como 288% de descuento: el 29% de los productos de
+    Plaza Vea terminaba con precio de tarjeta negativo. Quien convierte ese
+    monto a precio es normalizar_producto(), que necesita FullSellingPrice.
     """
     candidatos = (promo_teasers or []) + (teasers or [])
-    mejor_pct = None
+    mejor_soles = None
     for t in candidatos:
         # Nombre puede venir como "Name" o "<Name>k__BackingField"
         name = t.get("Name") or t.get("<Name>k__BackingField") or ""
@@ -162,16 +165,16 @@ def detectar_tarjeta_oh(teasers: list, promo_teasers: list) -> tuple[str | None,
             if p_name == "PromotionalPriceTableItemsDiscount":
                 p_val = param.get("Value") or param.get("<Value>k__BackingField")
                 try:
-                    pct = float(p_val) * 100
-                    if mejor_pct is None or pct > mejor_pct:
-                        mejor_pct = pct
+                    soles = float(p_val)
+                    if mejor_soles is None or soles > mejor_soles:
+                        mejor_soles = soles
                 except (TypeError, ValueError):
                     pass
                 break
 
-    if mejor_pct is None:
+    if not mejor_soles:
         return None, None
-    return "Tarjeta Oh!", round(mejor_pct, 1)
+    return "Tarjeta Oh!", mejor_soles
 
 
 # ── Normalización ───────────────────────────────────────────────────────────
@@ -193,6 +196,11 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
 
     price      = offer.get("Price")
     list_price = offer.get("ListPrice")
+    # Precio de la UNIDAD de venta. En los productos por peso, Price es por kilo
+    # y este es el del artículo entero: un pollo de 2,2 kg a S/ 8,90/kg tiene
+    # FullSellingPrice 19,58. Lo guardamos porque es la base sobre la que VTEX
+    # expresa los descuentos de la promo Oh!.
+    full_price = offer.get("FullSellingPrice")
 
     # Heurística VTEX: si ListPrice > Price hay descuento online (sin tarjeta)
     tiene_desc = bool(list_price and price and float(list_price) > float(price))
@@ -205,12 +213,20 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
     if supermercado == "plazavea":
         teasers       = offer.get("Teasers") or []
         promo_teasers = offer.get("PromotionTeasers") or []
-        nombre_tarjeta, tarjeta_pct = detectar_tarjeta_oh(teasers, promo_teasers)
-        if tarjeta_pct is not None and price:
-            # Aproximación: aplicamos el descuento de la promo Oh! sobre el
-            # precio internet. El precio real puede diferir un poco porque VTEX
-            # usa una tabla de precios promocional que no expone públicamente.
-            precio_tarjeta = round(price * (1 - tarjeta_pct / 100), 2)
+        nombre_tarjeta, descuento_soles = detectar_descuento_oh(teasers, promo_teasers)
+        if descuento_soles and price and full_price:
+            # El descuento está expresado sobre la unidad de venta, así que hay
+            # que llevarlo a la base de Price antes de restarlo. Para el pollo de
+            # arriba, S/ 5,28 sobre la unidad son S/ 2,40 por kilo — no 5,28.
+            precio_tarjeta = round(price * (1 - descuento_soles / full_price), 2)
+            tarjeta_pct    = round(descuento_soles / full_price * 100, 1)
+            # Red de seguridad: si el resultado no es un precio plausible,
+            # preferimos no registrar nada antes que guardar basura. Fue
+            # exactamente esto lo que faltó cuando el descuento se leía mal.
+            if not 0 < precio_tarjeta < price:
+                precio_tarjeta = tarjeta_pct = nombre_tarjeta = None
+        else:
+            nombre_tarjeta = None
 
     link_text = p.get("linkText") or ""
     url_producto = f"{host}/{link_text}/p" if link_text else ""
@@ -235,6 +251,7 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
         "nombre_tarjeta":         nombre_tarjeta,
         "tarjeta_descuento_pct":  tarjeta_pct,
         "precio_internet":        price,
+        "precio_unidad":          full_price,
         "precio_normal":          list_price if tiene_desc else None,
         "precio_descuento":       price,
         "precio_regular":         list_price if tiene_desc else price,

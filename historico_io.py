@@ -23,7 +23,7 @@ CAMPOS_HISTORICO = [
     "supermercado", "categoria", "familia", "nombre",
     "producto_id", "sku_id", "marca", "url", "imagen", "vendedor",
     "precio_tarjeta", "nombre_tarjeta", "tarjeta_descuento_pct",
-    "precio_internet", "precio_normal",
+    "precio_internet", "precio_unidad", "precio_normal",
     "precio_descuento", "precio_regular",
     "tiene_descuento", "descuento_pct", "fecha_extraccion",
 ]
@@ -49,16 +49,47 @@ def cargar_historico() -> pd.DataFrame:
     )
 
 
+def _cabecera(destino: Path) -> list[str] | None:
+    """Columnas de una partición existente, o None si no existe o está vacía."""
+    if not destino.exists() or destino.stat().st_size == 0:
+        return None
+    with open(destino, encoding="utf-8", newline="") as f:
+        return next(csv.reader(f), None)
+
+
+def migrar_esquema(destino: Path) -> None:
+    """Reescribe una partición para que use las columnas actuales.
+
+    Agregar un campo a CAMPOS_HISTORICO sin esto desalinea el CSV en silencio:
+    DictWriter escribiría N+1 valores bajo una cabecera de N, y todo lo que
+    viniera después de la columna nueva quedaría corrido un lugar. Las filas
+    viejas quedan con la columna nueva vacía, que es la verdad: ese dato no se
+    capturaba todavía.
+    """
+    tmp = destino.with_name(destino.name + ".tmp")
+    with open(destino, encoding="utf-8", newline="") as f_in, \
+         open(tmp, "w", encoding="utf-8", newline="") as f_out:
+        lector = csv.DictReader(f_in)
+        escritor = csv.DictWriter(f_out, fieldnames=CAMPOS_HISTORICO,
+                                  extrasaction="ignore")
+        escritor.writeheader()
+        for fila in lector:
+            escritor.writerow({c: fila.get(c, "") for c in CAMPOS_HISTORICO})
+    tmp.replace(destino)
+
+
 def append_historico(rows: list[dict]) -> Path:
     """Agrega filas a la partición del mes actual (append-only). Devuelve la ruta."""
     destino = _particion_actual()
     if not rows:
         return destino
     DATA_DIR.mkdir(exist_ok=True)
-    es_nuevo = not destino.exists() or destino.stat().st_size == 0
+    cabecera = _cabecera(destino)
+    if cabecera is not None and cabecera != CAMPOS_HISTORICO:
+        migrar_esquema(destino)
     with open(destino, "a", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=CAMPOS_HISTORICO, extrasaction="ignore")
-        if es_nuevo:
+        if cabecera is None:
             w.writeheader()
         w.writerows(rows)
     return destino

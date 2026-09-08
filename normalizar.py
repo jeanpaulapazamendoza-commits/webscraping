@@ -114,8 +114,8 @@ def calcular_precio_efectivo(row):
 
 # ─── PIPELINE PRINCIPAL ──────────────────────────────────────────────────────
 
-PRECIO_COLS = ["precio_tarjeta", "precio_internet", "precio_normal",
-               "precio_descuento", "precio_regular"]
+PRECIO_COLS = ["precio_tarjeta", "precio_internet", "precio_unidad",
+               "precio_normal", "precio_descuento", "precio_regular"]
 
 # Schema final con columnas en español y ordenadas para Power BI
 COL_RENAME = {
@@ -133,6 +133,7 @@ COL_RENAME = {
     "nombre_tarjeta":        "Nombre Tarjeta",
     "tarjeta_descuento_pct": "Descuento Tarjeta %",
     "precio_internet":       "Precio Internet (S/)",
+    "precio_unidad":         "Precio Unidad (S/)",
     "precio_normal":         "Precio Normal (S/)",
     "precio_descuento":      "Precio Descuento (S/)",
     "precio_regular":        "Precio Regular (S/)",
@@ -147,7 +148,7 @@ ORDEN_COLUMNAS = [
     "ID Producto", "SKU", "Marca",
     "Precio Efectivo (S/)",
     "Precio Tarjeta (S/)", "Nombre Tarjeta", "Descuento Tarjeta %",
-    "Precio Internet (S/)", "Precio Normal (S/)",
+    "Precio Internet (S/)", "Precio Unidad (S/)", "Precio Normal (S/)",
     "Precio Descuento (S/)", "Precio Regular (S/)",
     "Tiene Descuento", "Descuento %", "Fecha Extracción",
     "URL", "URL Imagen", "Vendedor",

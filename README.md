@@ -54,13 +54,19 @@ Pruebas de humo del dashboard: corren `app.py` entera con el harness oficial de
 Streamlit, sin levantar servidor, contra el histórico real del repo.
 
 ```bash
-python tests/test_dashboard.py      # sin instalar nada
-python -m pytest tests/             # si tenés pytest
+python tests/test_dashboard.py      # dashboard, sin instalar nada
+python tests/test_extractor.py      # extractor VTEX, sin red
+python -m pytest tests/             # las dos, si tenés pytest
 ```
 
-Cubren los casos que ya rompieron la app: filtros que no dejan ninguna fila,
-que el snapshot sea del último día y no de la última vez que se vio cada
-producto, y que el contador del encabezado cuente días y no timestamps.
+`test_dashboard.py` cubre los casos que ya rompieron la app: filtros que no
+dejan ninguna fila, que el snapshot sea del último día y no de la última vez
+que se vio cada producto, y que el contador del encabezado cuente días y no
+timestamps.
+
+`test_extractor.py` cubre el precio con Tarjeta Oh! de Plaza Vea, que VTEX
+expresa como un monto en soles sobre la unidad de venta y no como un
+porcentaje — leerlo mal producía precios negativos.
 
 ## Setup
 

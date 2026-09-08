@@ -40,7 +40,7 @@ alt.data_transformers.enable("default", max_rows=50_000)
 # ── Carga de datos ──────────────────────────────────────────────────────────
 
 COLS_PRECIO = [
-    "precio_tarjeta", "precio_internet", "precio_normal",
+    "precio_tarjeta", "precio_internet", "precio_unidad", "precio_normal",
     "precio_descuento", "precio_regular",
 ]
 COLS_NUMERICAS = COLS_PRECIO + ["tarjeta_descuento_pct", "descuento_pct"]
