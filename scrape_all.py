@@ -10,6 +10,7 @@ Uso:
     python scrape_all.py --dry-run             # solo muestra qué haría
     python scrape_all.py --delay 2             # 2 segundos entre requests (default: 1)
     python scrape_all.py --no-sheets           # no exportar a Google Sheets
+    python scrape_all.py --no-json             # no regenerar el JSON del frontend
     python scrape_all.py --excel               # además generar el XLSX local
 
 Output:
@@ -17,6 +18,7 @@ Output:
     - data/snapshots/*.json      (backup individual por categoría)
     - data/_run_log.txt          (log de la última corrida con éxitos/fallos)
     - Google Sheet (Histórico/Snapshot Actual/Resumen Competitivo), salvo --no-sheets
+    - web/datos/*.json  (lo que consume el frontend), salvo --no-json
 """
 
 import sys
@@ -109,6 +111,8 @@ def main():
                         help="Solo mostrar qué haría, sin ejecutar")
     parser.add_argument("--no-sheets", action="store_true",
                         help="No exportar a Google Sheets al final")
+    parser.add_argument("--no-json", action="store_true",
+                        help="No regenerar los JSON de web/datos")
     parser.add_argument("--excel", action="store_true",
                         help="Además generar el XLSX local vía build_excel.py")
     args = parser.parse_args()
@@ -206,6 +210,19 @@ def main():
             export_sheets.exportar(rows_nuevas=todos_los_productos)
         except Exception as e:
             print(f"  ⚠ No se pudo exportar a Google Sheets: {e}")
+
+    # ── JSON para el frontend ─────────────────────────────────────────────────
+    # Esto es lo que hace de "build": la web no calcula nada, solo lee estos
+    # archivos. Va antes que el XLSX porque es parte del entregable diario.
+    if exitos and not args.no_json:
+        print(f"\n{'─'*70}")
+        print("Construyendo el JSON del frontend...")
+        print("─" * 70)
+        try:
+            import construir_json
+            construir_json.construir()
+        except Exception as e:
+            print(f"  ⚠ No se pudo construir el JSON: {e}")
 
     # ── Generación opcional del XLSX para Power BI ─────────────────────────────
     if exitos and args.excel and Path("build_excel.py").exists():
