@@ -83,7 +83,10 @@ def cargar_datos() -> pd.DataFrame:
         )
         for c in COLS_PRECIO + ["descuento_pct"]:
             if c in p.columns:
-                p[c] = pd.to_numeric(p[c], errors="coerce", downcast="float")
+                # float32 explícito en vez de downcast=, que está deprecado:
+                # un precio en soles no necesita la precisión de float64 y esto
+                # ahorra la mitad de la memoria de las columnas numéricas.
+                p[c] = pd.to_numeric(p[c], errors="coerce").astype("float32")
         partes.append(p)
 
     if not partes:

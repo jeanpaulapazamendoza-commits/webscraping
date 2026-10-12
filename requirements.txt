@@ -1,8 +1,21 @@
-requests>=2.31.0
-pyyaml>=6.0
-pandas>=2.0.0
-streamlit>=1.57.0
-openpyxl>=3.1.0
-altair>=5.0.0
-gspread>=6.0.0
-google-auth>=2.25.0
+# Versiones con techo a propósito. Streamlit Community Cloud instala lo último
+# que permita cada rango, así que un ">=" sin límite superior significa que
+# producción corre una combinación que nadie probó: el día que sale una versión
+# nueva, la app puede dejar de arrancar sin que se haya tocado una línea.
+#
+# El caso concreto: con "pandas>=2.0.0" el deploy pasó a instalar pandas 3.0,
+# que cambia el dtype por defecto de las columnas de texto e impone
+# Copy-on-Write. Los techos de acá abajo son las versiones verificadas contra
+# las 24 pruebas del repo.
+#
+# Para subir un techo: cambiarlo acá, correr las pruebas, y recién entonces
+# mergear.
+
+requests>=2.31.0,<3
+pyyaml>=6.0,<7
+pandas>=2.3.0,<3
+streamlit>=1.57.0,<2
+openpyxl>=3.1.0,<4
+altair>=5.0.0,<7
+gspread>=6.0.0,<7
+google-auth>=2.25.0,<3
