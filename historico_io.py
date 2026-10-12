@@ -22,6 +22,7 @@ DATA_DIR = Path("data")
 CAMPOS_HISTORICO = [
     "supermercado", "categoria", "familia", "nombre",
     "producto_id", "sku_id", "marca", "url", "imagen", "vendedor",
+    "disponible", "stock",
     "precio_tarjeta", "nombre_tarjeta", "tarjeta_descuento_pct",
     "precio_internet", "precio_unidad", "precio_normal",
     "precio_descuento", "precio_regular",

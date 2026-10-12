@@ -16,7 +16,8 @@ RAIZ = Path(__file__).resolve().parent.parent
 os.chdir(RAIZ)
 sys.path.insert(0, str(RAIZ))
 
-from vtex_extractor import detectar_descuento_oh, normalizar_producto
+from vtex_extractor import (STOCK_SIN_LIMITE, detectar_descuento_oh,
+                             normalizar_producto)
 
 
 def teaser(nombre, descuento):
@@ -30,7 +31,8 @@ def teaser(nombre, descuento):
     }
 
 
-def producto(price, full_selling_price, teasers=(), list_price=None):
+def producto(price, full_selling_price, teasers=(), list_price=None,
+             disponible=True, cantidad=100):
     return {
         "productName": "Producto de prueba",
         "productId": "1",
@@ -46,6 +48,8 @@ def producto(price, full_selling_price, teasers=(), list_price=None):
                     "Price": price,
                     "ListPrice": list_price if list_price is not None else price,
                     "FullSellingPrice": full_selling_price,
+                    "IsAvailable": disponible,
+                    "AvailableQuantity": cantidad,
                     "Teasers": list(teasers),
                     "PromotionTeasers": [],
                 },
@@ -137,6 +141,53 @@ def test_descuento_online_sigue_saliendo_del_precio_tachado():
     assert r["tiene_descuento"] is True
     assert r["descuento_pct"] == 15.7
     assert r["precio_regular"] == 8.90
+
+
+# ─── disponibilidad ──────────────────────────────────────────────────────────
+
+def test_captura_disponibilidad_y_stock():
+    r = norm(producto(8.90, 19.58, cantidad=317))
+    assert r["disponible"] is True
+    assert r["stock"] == 317
+
+
+def test_un_agotado_se_marca_pero_conserva_su_precio():
+    """No se descarta la fila: perderla impide saber cuándo volvió el stock, y
+    el precio publicado sigue siendo un dato real del catálogo."""
+    r = norm(producto(7.90, 7.90, disponible=False, cantidad=0))
+    assert r["disponible"] is False
+    assert r["stock"] == 0
+    assert r["precio_internet"] == 7.90
+
+
+def test_el_centinela_no_se_guarda_como_stock():
+    """VTEX pone 99999 para decir que no lleva la cuenta, típico de lo que se
+    vende por peso. Medido: 326 de 934 productos disponibles lo traen."""
+    for cantidad in (99999, 99997, 99695, STOCK_SIN_LIMITE):
+        r = norm(producto(8.90, 19.58, cantidad=cantidad))
+        assert r["stock"] is None, f"{cantidad} debería leerse como desconocido"
+        assert r["disponible"] is True, "sin contador no significa sin stock"
+
+
+def test_stock_justo_por_debajo_del_centinela_si_se_guarda():
+    r = norm(producto(8.90, 19.58, cantidad=STOCK_SIN_LIMITE - 1))
+    assert r["stock"] == STOCK_SIN_LIMITE - 1
+
+
+def test_la_disponibilidad_sale_del_mismo_seller_que_el_precio():
+    """Si una cadena suma vendedores, precio y disponibilidad tienen que venir
+    del mismo, no de dos distintos."""
+    p = producto(8.90, 19.58)
+    oferta = p["items"][0]["sellers"][0]
+    otro = {"sellerDefault": False, "sellerName": "Otro",
+            "commertialOffer": {"Price": 99.0, "ListPrice": 99.0,
+                                "FullSellingPrice": 99.0, "IsAvailable": False,
+                                "AvailableQuantity": 0, "Teasers": [],
+                                "PromotionTeasers": []}}
+    p["items"][0]["sellers"] = [otro, oferta]      # el default va segundo
+    r = norm(p)
+    assert r["precio_internet"] == 8.90, "tomó el precio del seller default"
+    assert r["disponible"] is True, "y la disponibilidad del MISMO seller"
 
 
 if __name__ == "__main__":

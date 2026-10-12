@@ -129,6 +129,8 @@ COL_RENAME = {
     "url":                   "URL",
     "imagen":                "URL Imagen",
     "vendedor":              "Vendedor",
+    "disponible":            "Disponible",
+    "stock":                 "Stock",
     "precio_tarjeta":        "Precio Tarjeta (S/)",
     "nombre_tarjeta":        "Nombre Tarjeta",
     "tarjeta_descuento_pct": "Descuento Tarjeta %",
@@ -151,6 +153,7 @@ ORDEN_COLUMNAS = [
     "Precio Internet (S/)", "Precio Unidad (S/)", "Precio Normal (S/)",
     "Precio Descuento (S/)", "Precio Regular (S/)",
     "Tiene Descuento", "Descuento %", "Fecha Extracción",
+    "Disponible", "Stock",
     "URL", "URL Imagen", "Vendedor",
 ]
 
@@ -222,6 +225,12 @@ def normalizar_df(df: pd.DataFrame) -> pd.DataFrame:
 
     # 7. Tiene descuento: bool → Sí/No
     df["tiene_descuento"] = df["tiene_descuento"].apply(bool_a_si_no)
+
+    # 7b. Disponible: mismo tratamiento, pero vacío se queda vacío. Las filas
+    #     anteriores a octubre de 2026 no tienen el dato, y "" dice justamente
+    #     eso: no se sabe. Convertirlo a "No" sería afirmar algo que no se midió.
+    if "disponible" in df.columns:
+        df["disponible"] = df["disponible"].apply(bool_a_si_no)
 
     # 8. Descuento %: numérico, vacíos → 0
     df["descuento_pct"] = pd.to_numeric(

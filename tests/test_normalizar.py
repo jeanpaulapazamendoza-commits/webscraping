@@ -34,6 +34,7 @@ FILA_NUEVA = dict(
     precio_internet="8.90", precio_unidad="19.58", precio_normal="",
     precio_descuento="8.90", precio_regular="8.90", tiene_descuento="False",
     descuento_pct="", fecha_extraccion="2026-09-08T10:00:00",
+    disponible="True", stock="317",
 )
 # La misma fila como la escribían antes de septiembre: sin precio_unidad.
 FILA_VIEJA = {k: v for k, v in FILA_NUEVA.items() if k != "precio_unidad"}
@@ -85,6 +86,21 @@ def test_el_resumen_sigue_funcionando():
     r = construir_resumen(df)
     assert "Precio Promedio (S/)" in r.columns
     assert len(r) >= 1
+
+
+def test_disponible_sale_como_si_no_y_el_vacio_queda_vacio():
+    """Un vacío dice "no se midió". Convertirlo a "No" afirmaría que estaba
+    agotado, que es distinto."""
+    con = normalizar_df(pd.DataFrame([FILA_NUEVA]))
+    assert con["Disponible"].iloc[0] == "Sí"
+    assert con["Stock"].iloc[0] == "317"
+
+    sin = {k: v for k, v in FILA_NUEVA.items() if k not in ("disponible", "stock")}
+    r = normalizar_df(pd.DataFrame([sin]))
+    assert r["Disponible"].iloc[0] in ("", None) or pd.isna(r["Disponible"].iloc[0])
+
+    agotado = {**FILA_NUEVA, "disponible": "False", "stock": "0"}
+    assert normalizar_df(pd.DataFrame([agotado]))["Disponible"].iloc[0] == "No"
 
 
 if __name__ == "__main__":

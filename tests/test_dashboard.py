@@ -19,6 +19,7 @@ os.chdir(RAIZ)                       # app.py lee data/ con rutas relativas
 sys.path.insert(0, str(RAIZ))
 
 import pandas as pd
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from historico_io import cargar_historico
@@ -134,6 +135,78 @@ def test_el_rango_por_defecto_no_es_todo_el_historico():
     assert (hasta - desde).days <= 30, (
         f"el rango por defecto es de {(hasta - desde).days} días, demasiado"
     )
+
+
+def test_las_filas_sin_el_dato_de_stock_no_se_pierden():
+    """La trampa del filtro de disponibilidad.
+
+    La columna existe desde octubre de 2026. Si el filtro descartara todo lo que
+    no diga True, se llevaría puesto el histórico entero y el dashboard quedaría
+    con un mes de datos. Solo se descarta lo marcado explícitamente como agotado.
+    """
+    at = _base()
+    dias_vistos = int(re.match(r"(\d+) día", at.caption[0].value).group(1))
+    assert dias_vistos == _esperado()["dias"], (
+        f"el dashboard muestra {dias_vistos} días y el histórico tiene "
+        f"{_esperado()['dias']}: el filtro se comió las filas sin el dato"
+    )
+
+
+def test_el_filtro_de_stock_sobre_datos_controlados():
+    """Las tres situaciones, sobre un histórico de juguete.
+
+    Se usa un fixture porque el histórico real todavía no tiene la columna
+    poblada: recién se captura desde la primera corrida con el extractor nuevo.
+    """
+    import csv
+    import tempfile
+
+    from historico_io import CAMPOS_HISTORICO
+
+    base = dict.fromkeys(CAMPOS_HISTORICO, "")
+    base.update(supermercado="wong", categoria="pollo", familia="pollo",
+                marca="M", url="u", precio_internet="10", precio_descuento="10",
+                precio_regular="10", tiene_descuento="False")
+    filas = [
+        {**base, "nombre": "Disponible", "producto_id": "1", "sku_id": "1",
+         "disponible": "True", "stock": "5", "fecha_extraccion": "2026-10-12T10:00:00"},
+        {**base, "nombre": "Agotado", "producto_id": "2", "sku_id": "2",
+         "disponible": "False", "stock": "0", "fecha_extraccion": "2026-10-12T10:00:00"},
+        {**base, "nombre": "Sin dato", "producto_id": "3", "sku_id": "3",
+         "fecha_extraccion": "2026-10-12T10:00:00"},
+    ]
+
+    tmp = tempfile.mkdtemp()
+    os.makedirs(os.path.join(tmp, "data"))
+    with open(os.path.join(tmp, "data", "historico_2026-10.csv"), "w",
+              encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=CAMPOS_HISTORICO, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(filas)
+
+    app = os.path.join(RAIZ, "app.py")
+    previo = os.getcwd()
+    try:
+        os.chdir(tmp)
+        # cargar_datos() está cacheada y las otras pruebas ya la llenaron con el
+        # histórico real; sin limpiar, el fixture no se llega a leer.
+        st.cache_data.clear()
+        at = AppTest.from_file(app, default_timeout=TIMEOUT)
+        at.run()
+        assert not at.exception, at.exception
+        por_defecto = int(at.metric[0].value.replace(",", ""))
+        assert por_defecto == 2, (
+            f"por defecto deberían verse el disponible y el sin dato, no {por_defecto}"
+        )
+        assert "1 filas sin stock fuera de la vista" in at.caption[0].value
+
+        at.sidebar.checkbox[1].set_value(True).run()
+        assert not at.exception
+        assert int(at.metric[0].value.replace(",", "")) == 3, "con el interruptor, los tres"
+        assert "incluye 1 filas sin stock" in at.caption[0].value
+    finally:
+        os.chdir(previo)
+        st.cache_data.clear()
 
 
 if __name__ == "__main__":

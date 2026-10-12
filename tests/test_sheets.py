@@ -22,7 +22,7 @@ import pandas as pd
 
 import export_sheets
 from export_sheets import alinear_a_cabecera, append_historico_sheet
-from normalizar import normalizar_df
+from normalizar import ESQUEMA_SALIDA, normalizar_df
 
 # Cabecera tal como quedó la hoja antes de que el esquema ganara precio_unidad.
 CABECERA_VIEJA = [
@@ -33,6 +33,12 @@ CABECERA_VIEJA = [
     "Tiene Descuento", "Descuento %", "Fecha Extracción", "URL", "URL Imagen",
     "Vendedor",
 ]
+
+# Lo que el esquema ganó desde que esa hoja se creó. Se deriva en vez de
+# escribirse a mano: el esquema crece cada tanto (precio_unidad, después
+# disponible y stock) y estas pruebas no deberían romperse por eso.
+NUEVAS = [c for c in ESQUEMA_SALIDA if c not in CABECERA_VIEJA]
+ANCHO = len(CABECERA_VIEJA) + len(NUEVAS)
 
 
 class HojaFalsa:
@@ -71,6 +77,7 @@ FILA = dict(
     precio_internet=8.90, precio_unidad=19.58, precio_normal=None,
     precio_descuento=8.90, precio_regular=8.90, tiene_descuento=False,
     descuento_pct=None, fecha_extraccion="2026-09-08T10:00:00",
+    disponible=True, stock=317,
 )
 
 
@@ -85,10 +92,10 @@ def test_la_columna_nueva_va_al_final_y_no_corre_las_demas():
     _subir(hoja, [FILA])
 
     assert hoja.cabecera[:21] == CABECERA_VIEJA, "las columnas viejas no se deben mover"
-    assert hoja.cabecera[21] == "Precio Unidad (S/)", "la nueva va al final"
+    assert hoja.cabecera[21:] == NUEVAS, "las nuevas van al final, en orden del esquema"
 
     fila = hoja.filas_agregadas[0]
-    assert len(fila) == len(hoja.cabecera) == 22
+    assert len(fila) == len(hoja.cabecera) == ANCHO
     por_nombre = dict(zip(hoja.cabecera, fila))
     assert por_nombre["Precio Internet (S/)"] == "8.9"
     assert por_nombre["Precio Unidad (S/)"] == "19.58"
@@ -97,10 +104,10 @@ def test_la_columna_nueva_va_al_final_y_no_corre_las_demas():
 
 
 def test_sin_columnas_nuevas_no_toca_la_cabecera():
-    hoja = HojaFalsa(CABECERA_VIEJA + ["Precio Unidad (S/)"])
+    hoja = HojaFalsa(CABECERA_VIEJA + NUEVAS)
     _subir(hoja, [FILA])
     assert hoja.updates == [], "no debería reescribir la fila 1 si no hace falta"
-    assert len(hoja.filas_agregadas[0]) == 22
+    assert len(hoja.filas_agregadas[0]) == ANCHO
 
 
 def test_hoja_vacia_escribe_la_cabecera():
@@ -126,6 +133,7 @@ def test_alinear_a_cabecera_conserva_el_orden_existente():
     df = normalizar_df(pd.DataFrame([FILA]))
     alineado, final = alinear_a_cabecera(df, CABECERA_VIEJA)
     assert final[:21] == CABECERA_VIEJA
+    assert final[21:] == NUEVAS
     assert list(alineado.columns) == final
 
 
@@ -136,7 +144,7 @@ def test_falla_ruidosamente_si_los_anchos_no_cuadran():
     try:
         # simulamos un desalineo: devolvemos una cabecera mas larga que el df
         export_sheets.alinear_a_cabecera = lambda df, cab: (
-            df, list(cab) + ["Fantasma", "Fantasma2", "Fantasma3"])
+            df, list(cab) + NUEVAS + ["Fantasma"])
         try:
             _subir(hoja, [FILA])
         except RuntimeError as e:

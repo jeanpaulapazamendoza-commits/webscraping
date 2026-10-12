@@ -47,7 +47,8 @@ alt.data_transformers.enable("default", max_rows=50_000)
 # sí se usan, pero únicamente en la tabla del snapshot.
 COLS_VISTA = [
     "supermercado", "categoria", "familia", "nombre", "producto_id",
-    "marca", "url", "fecha_extraccion", "tiene_descuento", "descuento_pct",
+    "marca", "url", "fecha_extraccion", "disponible",
+    "tiene_descuento", "descuento_pct",
     "precio_tarjeta", "precio_internet", "precio_normal",
     "precio_descuento", "precio_regular",
 ]
@@ -99,6 +100,12 @@ def cargar_datos() -> pd.DataFrame:
         if c in df.columns:
             df[c] = df[c].astype("category")
     df["tiene_descuento"] = df["tiene_descuento"].astype(str) == "True"
+
+    # Tres estados, no dos: disponible, agotado, y "no se sabe" para las filas
+    # anteriores a que se capturara el dato. map() deja esas últimas en nulo, que
+    # es la verdad; convertirlas a False afirmaría algo que nunca se midió.
+    if "disponible" in df.columns:
+        df["disponible"] = df["disponible"].astype(str).map({"True": True, "False": False})
 
     # VTEX publica Price = 0 cuando el producto está en catálogo pero sin precio
     # (casi siempre por falta de stock). Cero no es un precio, así que lo pasamos
@@ -194,6 +201,12 @@ with st.sidebar.expander("Categoría detalle", expanded=False):
                              label_visibility="collapsed")
 
 solo_descuento = st.sidebar.checkbox("Solo con descuento", value=False)
+incluir_agotados = st.sidebar.checkbox(
+    "Incluir productos sin stock", value=False,
+    help="Las cadenas publican productos agotados con su precio normal. Plaza Vea "
+         "tiene cerca de un tercio del catálogo así y Wong casi ninguno, por eso "
+         "incluirlos deforma la comparación entre cadenas.",
+)
 
 # Aplicar filtros
 dff = df[df["supermercado"].isin(super_sel) & df["categoria"].isin(cat_sel)]
@@ -201,6 +214,13 @@ if familia_sel is not None:
     dff = dff[dff["familia"].isin(familia_sel)]
 if solo_descuento:
     dff = dff[dff["tiene_descuento"]]
+
+# Se descartan solo las filas marcadas explícitamente como agotadas. Las que no
+# tienen el dato (todo lo anterior a octubre de 2026) se conservan: perderlas
+# borraría el histórico entero, que es lo que hace útil al dashboard.
+agotados = int((dff["disponible"] == False).sum()) if "disponible" in dff.columns else 0
+if not incluir_agotados and "disponible" in dff.columns:
+    dff = dff[dff["disponible"] != False]
 
 # Si los filtros no dejan ninguna fila, cortamos acá con un mensaje. Sin esto,
 # el .max() sobre una columna de fechas vacía devuelve NaT y el formateo del
@@ -240,10 +260,13 @@ n_dias = dff["fecha_extraccion"].dt.date.nunique()
 # ── Header ──────────────────────────────────────────────────────────────────
 
 st.title("🛒 Precios Supermercados Perú")
-st.caption(
-    f"{n_dias} día{'s' if n_dias != 1 else ''} de histórico · "
-    f"snapshot del {fecha_snapshot:%d/%m/%Y} con {len(snapshot_actual):,} productos"
-)
+leyenda = (f"{n_dias} día{'s' if n_dias != 1 else ''} de histórico · "
+           f"snapshot del {fecha_snapshot:%d/%m/%Y} con {len(snapshot_actual):,} productos")
+if agotados and not incluir_agotados:
+    leyenda += f" · {agotados:,} filas sin stock fuera de la vista"
+elif agotados and incluir_agotados:
+    leyenda += f" · incluye {agotados:,} filas sin stock"
+st.caption(leyenda)
 
 
 # ── KPIs ────────────────────────────────────────────────────────────────────
@@ -272,7 +295,7 @@ with tab1:
     st.subheader("Productos al último snapshot")
     cols_show = ["supermercado", "familia", "categoria", "nombre", "marca",
                  "precio_descuento", "precio_regular", "descuento_pct",
-                 "tiene_descuento", "url"]
+                 "tiene_descuento", "disponible", "url"]
     cols_show = [c for c in cols_show if c in snapshot_actual.columns]
     st.dataframe(
         snapshot_actual[cols_show]
@@ -284,6 +307,8 @@ with tab1:
             "precio_descuento": st.column_config.NumberColumn(format="S/ %.2f"),
             "precio_regular":   st.column_config.NumberColumn(format="S/ %.2f"),
             "descuento_pct":    st.column_config.NumberColumn(format="%.1f%%"),
+            "disponible":       st.column_config.CheckboxColumn(
+                "En stock", help="Vacío = la cadena no publicaba el dato ese día"),
         },
     )
 

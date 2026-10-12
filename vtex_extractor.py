@@ -43,6 +43,13 @@ HEADERS = {
 
 PAGE_SIZE = 50  # límite de VTEX por request
 
+# VTEX usa un número enorme en AvailableQuantity para decir "no llevo la cuenta",
+# típico de lo que se vende por peso. Medido sobre 1.042 productos de las tres
+# cadenas: 326 traen exactamente 99999, y aparecen también 99997 y 99695, que es
+# el mismo centinela ya descontado por ventas. Guardar eso como stock real sería
+# inventar un número; por encima de este umbral se registra como desconocido.
+STOCK_SIN_LIMITE = 99_000
+
 
 # ── Parseo de URL ───────────────────────────────────────────────────────────
 
@@ -202,6 +209,20 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
     # expresa los descuentos de la promo Oh!.
     full_price = offer.get("FullSellingPrice")
 
+    # Disponibilidad. Sale del MISMO offer del que sale el precio, para que no
+    # queden de vendedores distintos si alguna cadena suma sellers más adelante.
+    #
+    # Importa más de lo que parece: un producto agotado se publica con su precio
+    # normal, así que sin este dato entra al histórico como si fuera comprable.
+    # En Plaza Vea eso es cerca de un tercio del catálogo, mientras que en Wong y
+    # Metro es casi cero, así que el sesgo cae sobre una sola cadena y ensucia
+    # justo la comparación entre cadenas.
+    disponible = offer.get("IsAvailable")
+    cantidad = offer.get("AvailableQuantity")
+    stock = None
+    if isinstance(cantidad, (int, float)) and cantidad < STOCK_SIN_LIMITE:
+        stock = int(cantidad)
+
     # Heurística VTEX: si ListPrice > Price hay descuento online (sin tarjeta)
     tiene_desc = bool(list_price and price and float(list_price) > float(price))
     pct = round((1 - price / list_price) * 100, 1) if tiene_desc else None
@@ -246,6 +267,8 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
         "url":          url_producto,
         "imagen":       img_url,
         "vendedor":     seller.get("sellerName") or "",
+        "disponible":   disponible,
+        "stock":        stock,
         # Precio con tarjeta del supermercado (CMR Tottus, Oh! Plaza Vea)
         "precio_tarjeta":         precio_tarjeta,
         "nombre_tarjeta":         nombre_tarjeta,
