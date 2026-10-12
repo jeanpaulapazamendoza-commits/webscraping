@@ -139,49 +139,113 @@ def fetch_pagina(host: str, path: str, page: int,
     return data
 
 
-# ── Detección de tarjeta (Plaza Vea Oh!) ────────────────────────────────────
+# ── Promociones de tarjeta ──────────────────────────────────────────────────
 
-def detectar_descuento_oh(teasers: list, promo_teasers: list) -> tuple[str | None, float | None]:
-    """Busca promos del ecosistema Oh! (Plaza Vea) en los teasers de VTEX.
+# Cómo nombra cada cadena su tarjeta dentro del teaser. Medido sobre los
+# teasers reales de las tres cadenas VTEX: Plaza Vea los llama "Promo Oh-Pay" y
+# "TARJETA OH - PVEA"; Wong y Metro usan "[TCENCO] ... Con TC Wong/Metro ...".
+TARJETAS = (
+    (re.compile(r"tarjeta\s*oh|oh-?pay|\boh\b", re.I), "Tarjeta Oh!"),
+    (re.compile(r"tc\s*wong", re.I),  "TC Wong"),
+    (re.compile(r"tc\s*metro", re.I), "TC Metro"),
+)
 
-    Devuelve (nombre_tarjeta, descuento_en_soles) o (None, None) si no hay.
+# Los teasers con "oculto" en el nombre son promociones de una tienda puntual
+# (aparecen como "Promo-Tarjeta-Oh-Lurin-Oculto"). El scraper corre sin región,
+# así que lo que corresponde informar es el precio general. Medido: en 14 de 15
+# productos valen lo mismo que la pública, y en el restante valen menos.
+OCULTO = re.compile(r"oculto", re.I)
 
-    Heurística: cualquier teaser cuyo Name contenga "oh" (case-insensitive)
-    se considera promoción Oh!. Si hay varias, se queda con la del descuento
-    más alto.
 
-    El valor sale del parámetro PromotionalPriceTableItemsDiscount y es un
-    MONTO EN SOLES, no una fracción 0-1. Leerlo como fracción hacía que un
-    "2.88" se interpretara como 288% de descuento: el 29% de los productos de
-    Plaza Vea terminaba con precio de tarjeta negativo. Quien convierte ese
-    monto a precio es normalizar_producto(), que necesita FullSellingPrice.
+def _precio_desde_monto(valor: float, price: float, full_price: float | None):
+    """PromotionalPriceTableItemsDiscount: un MONTO EN SOLES sobre la unidad.
+
+    Es el formato de Plaza Vea. El descuento viene expresado sobre
+    FullSellingPrice (el artículo entero), mientras que Price puede ser por kilo,
+    así que hay que llevarlo a la misma base antes de restarlo.
     """
-    candidatos = (promo_teasers or []) + (teasers or [])
-    mejor_soles = None
-    for t in candidatos:
-        # Nombre puede venir como "Name" o "<Name>k__BackingField"
-        name = t.get("Name") or t.get("<Name>k__BackingField") or ""
-        if "oh" not in name.lower():
+    if not full_price:
+        return None
+    return price * (1 - valor / full_price)
+
+
+def _precio_desde_porcentaje(valor: float, price: float, full_price: float | None):
+    """PercentualDiscount: un PORCENTAJE directo sobre el precio.
+
+    Es el formato de Wong y Metro, que publican "5% con TC Wong". Acá no
+    interviene FullSellingPrice: el porcentaje se aplica sobre Price tal cual.
+    """
+    return price * (1 - valor / 100)
+
+
+# Un formato por nombre de parámetro. Son cálculos distintos y no se pueden
+# mezclar: leer el monto en soles como si fuera un porcentaje fue exactamente el
+# error que dejó 2.300 precios de tarjeta negativos en el histórico.
+FORMULAS = {
+    "PromotionalPriceTableItemsDiscount": _precio_desde_monto,
+    "PercentualDiscount": _precio_desde_porcentaje,
+}
+
+
+def _nombre(obj: dict) -> str:
+    """VTEX serializa las claves de dos formas según el endpoint."""
+    return obj.get("Name") or obj.get("<Name>k__BackingField") or ""
+
+
+def _parametros(teaser: dict) -> list:
+    efectos = teaser.get("Effects") or teaser.get("<Effects>k__BackingField") or {}
+    return efectos.get("Parameters") or efectos.get("<Parameters>k__BackingField") or []
+
+
+def detectar_promo_tarjeta(teasers: list, promo_teasers: list, price: float,
+                           full_price: float | None) -> tuple:
+    """Busca la mejor promoción de tarjeta en los teasers de VTEX.
+
+    Devuelve (nombre_tarjeta, precio_tarjeta, descuento_pct, origen), o cuatro
+    None si no hay ninguna aplicable.
+
+    `origen` guarda qué teaser y qué parámetro produjeron el número, con la
+    forma "nombre del teaser|parámetro". Es lo que faltó para reconstruir el
+    error del precio Oh! sin volver a scrapear.
+
+    Si hay varias promociones se queda con la que deja el precio más bajo, que
+    es lo que el cliente termina pagando.
+    """
+    mejor = None
+    for teaser in (promo_teasers or []) + (teasers or []):
+        nombre_teaser = _nombre(teaser)
+        if not nombre_teaser or OCULTO.search(nombre_teaser):
             continue
 
-        # Buscar el parámetro de descuento dentro de Effects.Parameters
-        effects = t.get("Effects") or t.get("<Effects>k__BackingField") or {}
-        params  = effects.get("Parameters") or effects.get("<Parameters>k__BackingField") or []
-        for param in params:
-            p_name = param.get("Name") or param.get("<Name>k__BackingField") or ""
-            if p_name == "PromotionalPriceTableItemsDiscount":
-                p_val = param.get("Value") or param.get("<Value>k__BackingField")
-                try:
-                    soles = float(p_val)
-                    if mejor_soles is None or soles > mejor_soles:
-                        mejor_soles = soles
-                except (TypeError, ValueError):
-                    pass
-                break
+        tarjeta = next((etiqueta for patron, etiqueta in TARJETAS
+                        if patron.search(nombre_teaser)), None)
+        if not tarjeta:
+            continue
 
-    if not mejor_soles:
-        return None, None
-    return "Tarjeta Oh!", mejor_soles
+        for parametro in _parametros(teaser):
+            formula = FORMULAS.get(_nombre(parametro))
+            if not formula:
+                continue
+            crudo = parametro.get("Value") or parametro.get("<Value>k__BackingField")
+            try:
+                valor = float(crudo)
+            except (TypeError, ValueError):
+                continue
+            if not valor:
+                continue
+
+            candidato = formula(valor, price, full_price)
+            # Red de seguridad: si no es un precio plausible, preferimos no
+            # registrar nada antes que guardar basura.
+            if candidato is None or not 0 < candidato < price:
+                continue
+            if mejor is None or candidato < mejor[1]:
+                mejor = (tarjeta, round(candidato, 2),
+                         round((1 - candidato / price) * 100, 1),
+                         f"{nombre_teaser}|{_nombre(parametro)}")
+            break
+
+    return mejor if mejor else (None, None, None, None)
 
 
 # ── Normalización ───────────────────────────────────────────────────────────
@@ -227,27 +291,19 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
     tiene_desc = bool(list_price and price and float(list_price) > float(price))
     pct = round((1 - price / list_price) * 100, 1) if tiene_desc else None
 
-    # ── Detección de tarjeta (solo Plaza Vea hoy) ─────────────────────────
-    nombre_tarjeta = None
-    tarjeta_pct    = None
-    precio_tarjeta = None
-    if supermercado == "plazavea":
-        teasers       = offer.get("Teasers") or []
-        promo_teasers = offer.get("PromotionTeasers") or []
-        nombre_tarjeta, descuento_soles = detectar_descuento_oh(teasers, promo_teasers)
-        if descuento_soles and price and full_price:
-            # El descuento está expresado sobre la unidad de venta, así que hay
-            # que llevarlo a la base de Price antes de restarlo. Para el pollo de
-            # arriba, S/ 5,28 sobre la unidad son S/ 2,40 por kilo — no 5,28.
-            precio_tarjeta = round(price * (1 - descuento_soles / full_price), 2)
-            tarjeta_pct    = round(descuento_soles / full_price * 100, 1)
-            # Red de seguridad: si el resultado no es un precio plausible,
-            # preferimos no registrar nada antes que guardar basura. Fue
-            # exactamente esto lo que faltó cuando el descuento se leía mal.
-            if not 0 < precio_tarjeta < price:
-                precio_tarjeta = tarjeta_pct = nombre_tarjeta = None
-        else:
-            nombre_tarjeta = None
+    # ── Promoción de tarjeta, para las tres cadenas ───────────────────────
+    # Antes esto estaba dentro de un `if supermercado == "plazavea"`, así que las
+    # columnas de tarjeta salían vacías para Wong y Metro aunque las dos
+    # publiquen su propia promoción. Hoy ambas tienen un 5% con su tarjeta.
+    nombre_tarjeta = precio_tarjeta = tarjeta_pct = tarjeta_origen = None
+    if price:
+        nombre_tarjeta, precio_tarjeta, tarjeta_pct, tarjeta_origen = (
+            detectar_promo_tarjeta(
+                offer.get("Teasers") or [],
+                offer.get("PromotionTeasers") or [],
+                price, full_price,
+            )
+        )
 
     link_text = p.get("linkText") or ""
     url_producto = f"{host}/{link_text}/p" if link_text else ""
@@ -273,6 +329,7 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
         "precio_tarjeta":         precio_tarjeta,
         "nombre_tarjeta":         nombre_tarjeta,
         "tarjeta_descuento_pct":  tarjeta_pct,
+        "tarjeta_origen":         tarjeta_origen,
         "precio_internet":        price,
         "precio_unidad":          full_price,
         "precio_normal":          list_price if tiene_desc else None,

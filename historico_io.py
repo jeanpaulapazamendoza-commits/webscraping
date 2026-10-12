@@ -23,7 +23,7 @@ CAMPOS_HISTORICO = [
     "supermercado", "categoria", "familia", "nombre",
     "producto_id", "sku_id", "marca", "url", "imagen", "vendedor",
     "disponible", "stock",
-    "precio_tarjeta", "nombre_tarjeta", "tarjeta_descuento_pct",
+    "precio_tarjeta", "nombre_tarjeta", "tarjeta_descuento_pct", "tarjeta_origen",
     "precio_internet", "precio_unidad", "precio_normal",
     "precio_descuento", "precio_regular",
     "tiene_descuento", "descuento_pct", "descuento_pct_sitio", "fecha_extraccion",

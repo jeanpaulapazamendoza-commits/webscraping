@@ -16,17 +16,18 @@ RAIZ = Path(__file__).resolve().parent.parent
 os.chdir(RAIZ)
 sys.path.insert(0, str(RAIZ))
 
-from vtex_extractor import (STOCK_SIN_LIMITE, detectar_descuento_oh,
+from vtex_extractor import (STOCK_SIN_LIMITE, detectar_promo_tarjeta,
                              normalizar_producto)
 
 
-def teaser(nombre, descuento):
-    """Un teaser de VTEX con la forma que devuelve Plaza Vea."""
+def teaser(nombre, descuento, parametro="PromotionalPriceTableItemsDiscount"):
+    """Un teaser de VTEX. Por defecto con el formato de Plaza Vea: un monto en
+    soles. Wong y Metro usan PercentualDiscount, que es un porcentaje."""
     return {
         "Name": nombre,
         "Effects": {"Parameters": [
             {"Name": "PromotionalPriceTableItemsIds", "Value": "1"},
-            {"Name": "PromotionalPriceTableItemsDiscount", "Value": str(descuento)},
+            {"Name": parametro, "Value": str(descuento)},
         ]},
     }
 
@@ -116,10 +117,10 @@ def test_ignora_promos_que_no_son_de_la_tarjeta():
     assert r["precio_tarjeta"] is None
 
 
-def test_se_queda_con_el_mejor_descuento():
-    nombre, soles = detectar_descuento_oh(
-        [teaser("Promo Oh-Pay", 1.20), teaser("TARJETA OH - PVEA", 2.40)], [])
-    assert (nombre, soles) == ("Tarjeta Oh!", 2.40)
+def test_se_queda_con_la_promo_que_deja_el_precio_mas_bajo():
+    r = norm(producto(10.0, 10.0, [teaser("TARJETA OH - PVEA", 1.00),
+                                   teaser("Promo Oh-Pay", 2.50)]))
+    assert r["precio_tarjeta"] == 7.50, "la mejor para el cliente"
 
 
 def test_acepta_la_serializacion_con_backing_field():
@@ -131,7 +132,59 @@ def test_acepta_la_serializacion_con_backing_field():
              "<Value>k__BackingField": "2.40000"},
         ]},
     }
-    assert detectar_descuento_oh([raro], []) == ("Tarjeta Oh!", 2.40)
+    tarjeta, precio, pct, origen = detectar_promo_tarjeta([raro], [], 10.0, 10.0)
+    assert (tarjeta, precio) == ("Tarjeta Oh!", 7.60)
+    assert origen == "TARJETA OH - PVEA|PromotionalPriceTableItemsDiscount"
+
+
+# ─── las otras cadenas ───────────────────────────────────────────────────────
+
+def test_wong_usa_un_porcentaje_directo_sobre_el_precio():
+    """Wong y Metro publican "5% con TC Wong" con el parámetro
+    PercentualDiscount, que no pasa por FullSellingPrice."""
+    r = norm(producto(17.90, 17.90, [teaser(
+        "[TCENCO] Oct26 - Supermercado Con 5% Dscto Con TC Wong del 07al31",
+        5, parametro="PercentualDiscount")]))
+    assert r["precio_tarjeta"] == 17.0
+    assert r["tarjeta_descuento_pct"] == 5.0
+    assert r["nombre_tarjeta"] == "TC Wong"
+
+
+def test_metro_tiene_su_propia_etiqueta():
+    r = norm(producto(9.50, 9.50, [teaser(
+        "[TCENCO] Oct26 - Supermercado Con 5% Dscto Con TC Metro del 01al31",
+        5, parametro="PercentualDiscount")]))
+    assert r["nombre_tarjeta"] == "TC Metro"
+    assert r["precio_tarjeta"] == 9.03
+
+
+def test_el_porcentaje_no_se_lee_como_monto():
+    """Los dos formatos no se pueden mezclar: leer el 5 de PercentualDiscount
+    como si fueran 5 soles daría 12,90 en vez de 17,00."""
+    r = norm(producto(17.90, 17.90, [teaser("TC Wong", 5, parametro="PercentualDiscount")]))
+    assert r["precio_tarjeta"] == 17.0
+
+
+def test_se_guarda_de_donde_salio_el_numero():
+    """Es lo que faltó para reconstruir el error del precio Oh! sin volver a
+    scrapear: qué teaser y qué parámetro produjeron el precio."""
+    r = norm(producto(10.0, 10.0, [teaser("Promo Oh-Pay", 2.00)]))
+    assert r["tarjeta_origen"] == "Promo Oh-Pay|PromotionalPriceTableItemsDiscount"
+
+
+def test_las_promos_de_una_tienda_puntual_se_ignoran():
+    """Los teasers "...-Lurin-Oculto" son de una tienda concreta y el scraper
+    corre sin región, así que lo que corresponde informar es el precio general."""
+    r = norm(producto(10.0, 10.0, [teaser("Promo-Tarjeta-Oh-Lurin-Oculto", 5.00)]))
+    assert r["precio_tarjeta"] is None
+
+
+def test_un_parametro_desconocido_no_inventa_un_precio():
+    """Si VTEX agrega un tercer formato, se registra como sin promo en vez de
+    calcularlo con la fórmula equivocada."""
+    r = norm(producto(10.0, 10.0, [teaser("TARJETA OH", 3, parametro="PromotionalPrice")]))
+    assert r["precio_tarjeta"] is None
+    assert r["nombre_tarjeta"] is None
 
 
 # ─── el descuento online, que no cambió ──────────────────────────────────────
