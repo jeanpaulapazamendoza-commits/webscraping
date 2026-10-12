@@ -1,7 +1,8 @@
 # Precios Supermercados Perú
 
-Pipeline automatizado que scrapea precios de 4 supermercados peruanos (Tottus, Wong,
-Metro, Plaza Vea) en 77 categorías, todos los días, y los muestra en un dashboard web
+Pipeline automatizado que scrapea los precios de carnes y frutas/verduras en 4
+supermercados peruanos (Tottus, Wong, Metro, Plaza Vea) —unos 4.000 productos por día
+repartidos en 223 categorías—, todos los días, y los muestra en un dashboard web
 (Streamlit) con histórico de evolución. El histórico completo también se replica en
 un Google Sheet en la nube.
 
@@ -21,8 +22,12 @@ un Google Sheet en la nube.
 .
 ├── .github/
 │   └── workflows/
-│       └── scrape.yml          # Cron diario + workflow_dispatch
-├── targets.yaml                 # 77 combinaciones supermercado × categoría
+│       ├── scrape.yml          # Cron diario + workflow_dispatch
+│       └── descubrir.yml       # Cron semanal: vuelve a resolver el lock
+├── categorias.yaml              # QUÉ vigilar: departamentos y reglas de familia
+├── descubrir.py                 # Resuelve categorias.yaml contra cada catálogo
+├── targets.lock.yaml            # Generado: las 74 rutas concretas de hoy
+├── targets.yaml                 # La lista a mano anterior; respaldo del lock
 ├── tottus_extractor.py          # Next.js __NEXT_DATA__
 ├── vtex_extractor.py            # Wong, Metro y Plaza Vea (API VTEX)
 ├── historico_io.py              # Carga/escritura del histórico particionado por mes
@@ -40,13 +45,48 @@ un Google Sheet en la nube.
 ## Cómo correrlo
 
 ```bash
-python scrape_all.py                      # las 77 categorías
+python scrape_all.py                      # los 74 targets del lock
 python scrape_all.py --super tottus        # solo un supermercado
 python scrape_all.py --familia res         # solo una familia
 python scrape_all.py --dry-run             # solo lista qué haría, sin ejecutar
 python scrape_all.py --no-sheets           # sin exportar a Google Sheets
 python scrape_all.py --excel               # además generar el XLSX local
 ```
+
+## Qué se vigila
+
+Las URLs de las categorías no se escriben a mano. `categorias.yaml` declara los
+departamentos a seguir y las reglas para asignar familia; `descubrir.py` las
+resuelve contra el árbol de categorías que publica cada cadena y deja las rutas
+concretas en `targets.lock.yaml`, que es lo que lee la corrida diaria.
+
+```bash
+python descubrir.py              # muestra qué cambiaría, sin escribir
+python descubrir.py --aplicar    # reescribe targets.lock.yaml
+```
+
+Agregar una categoría nueva es agregar un departamento o un término a
+`categorias.yaml`, no buscar una URL y pegarla. Una vez por semana el workflow
+`descubrir.yml` vuelve a resolverlo solo, porque los menús cambian: aparecen
+subcategorías y los CATG de Tottus se mueven de rama.
+
+Las dos cadenas se piden distinto, y la diferencia es medida:
+
+- **VTEX** (Wong, Metro, Plaza Vea) se pide por nivel. La búsqueda por ruta ya
+  devuelve todo lo que cuelga debajo, así que pedir nivel 2 cubre el
+  departamento entero con ~7 peticiones en vez de ~300, y la categoría de cada
+  producto se deriva de su propia ruta, más fina que el target que lo trajo.
+- **Tottus** se pide completo, a todos los niveles, porque cada nodo lista
+  *solo* los productos asignados a él. Medido sobre "Frutas y Verduras": nivel 2
+  son 177 productos, nivel 3 son 112, y comparten apenas 15. "Frutas Cítricas"
+  tiene 7 productos y su hija "Fresas y Arándanos" 12, ninguno de los cuales
+  aparece en la madre. Quedarse con un nivel perdía el otro.
+
+Como los nodos de Tottus se superponen un poco, `scrape_all.py` descarta por
+`producto_id` lo que ya vio en la corrida y conserva la primera aparición; el
+lock ordena los nodos finos primero para que la categoría que quede sea la más
+específica. Contra la lista a mano anterior: 4.002 productos por día en vez de
+3.647 (+355, ninguno perdido) y 223 categorías distintas en vez de 185.
 
 ## La web (Vercel)
 

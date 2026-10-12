@@ -191,6 +191,11 @@ def extraer(url: str, supermercado: str = "tottus", delay: float = 1.5) -> list[
     print(f"[1] Cargando página 1: {url}")
     next_data = fetch_next_data(url, session, page=1)
     pp        = next_data["props"]["pageProps"]
+    if "pagination" not in pp:
+        # Pasa con los nodos del menú que no son un listado de productos: la
+        # página responde 200 pero sin resultados ni paginación.
+        raise RuntimeError(
+            f"La página no es un listado de productos (sin 'pagination'): {url}")
     pagination = pp["pagination"]
     total      = pagination["count"]
     per_page   = pagination["perPage"]

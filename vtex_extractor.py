@@ -23,6 +23,7 @@ URLs validadas:
 
 import re
 import json
+import unicodedata
 import time
 import argparse
 from pathlib import Path
@@ -137,6 +138,35 @@ def fetch_pagina(host: str, path: str, page: int,
     if not isinstance(data, list):
         raise RuntimeError(f"Esperaba lista de productos, recibí: {type(data).__name__}")
     return data
+
+
+def _slug(texto: str) -> str:
+    sin_tildes = unicodedata.normalize("NFD", str(texto).lower())
+    sin_tildes = sin_tildes.encode("ascii", "ignore").decode()
+    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", sin_tildes)).strip("-")
+
+
+def categoria_del_producto(p: dict, respaldo: str) -> str:
+    """La categoría real del producto, no el target que lo trajo.
+
+    VTEX manda en cada producto su propia ruta de categorías, de la más
+    profunda a la más general:
+
+        ["/Carnes, Aves y Pescados/Pollo/Pollo Entero/", "/Carnes…/Pollo/", …]
+
+    Leerla permite pedir un nodo alto —que ya incluye todo lo que cuelga
+    debajo— sin perder la etiqueta fina. Antes había que pedir hoja por hoja
+    para tener esa precisión, y aun así se quedaban categorías afuera porque la
+    lista era a mano.
+
+    El slug derivado del nombre coincide con el del árbol: verificado sobre 50
+    productos, 50 coincidencias.
+    """
+    rutas = p.get("categories") or []
+    if not rutas:
+        return respaldo
+    partes = [x for x in str(rutas[0]).strip("/").split("/") if x]
+    return _slug(partes[-1]) if partes else respaldo
 
 
 # ── Promociones de tarjeta ──────────────────────────────────────────────────
@@ -315,7 +345,7 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
 
     return {
         "supermercado": supermercado,
-        "categoria":    categoria,
+        "categoria":    categoria_del_producto(p, categoria),
         "nombre":       (p.get("productName") or "").strip(),
         "producto_id":  str(p.get("productId") or ""),
         "sku_id":       str(item.get("itemId") or ""),

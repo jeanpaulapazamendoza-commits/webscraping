@@ -1,0 +1,74 @@
+# Qué vigilar. Las rutas concretas no se escriben acá: las resuelve
+# descubrir.py contra el árbol de categorías que publica cada cadena, y las deja
+# en targets.lock.yaml.
+#
+#     python descubrir.py              # muestra qué cambiaría
+#     python descubrir.py --aplicar    # reescribe targets.lock.yaml
+#
+# Agregar una categoría nueva es agregar un departamento o un término acá, no
+# buscar una URL y pegarla.
+
+# Los departamentos a seguir, con el nombre que usa cada cadena en su ruta.
+# VTEX (plazavea, wong, metro) comparte los mismos; Tottus usa IDs CATG, así
+# que se nombra por el título del menú.
+departamentos:
+  vtex:
+    - carnes-aves-y-pescados
+    - frutas-y-verduras
+  tottus:
+    - Carnes
+    - Frutas y Verduras
+
+# Hasta qué profundidad del árbol se piden los nodos.
+#
+# La búsqueda por ruta de VTEX ya incluye todo lo que cuelga debajo, así que
+# pedir nivel 2 cubre el departamento entero con pocas peticiones, y la
+# categoría de cada producto se deriva de su propia ruta — más fina que el
+# target que lo trajo. Medido: nivel 2 son ~34 peticiones y cubre lo mismo que
+# las ~302 que costaría pedir hoja por hoja.
+nivel_vtex: 2
+
+# Tottus no publica la categoría dentro de cada producto, solo un código
+# interno, así que la etiqueta sale del target y no del producto.
+#
+# Y Tottus no tiene nivel: se piden TODOS los nodos que cuelgan de los
+# departamentos, a cualquier profundidad. Su menú no es una jerarquía donde el
+# padre contenga al hijo — cada nodo lista únicamente los productos asignados a
+# él. Medido sobre "Frutas y Verduras": nivel 2 son 177 productos, nivel 3 son
+# 112, y comparten apenas 15; entre los dos hay 274 únicos. "Frutas Cítricas"
+# tiene 7 productos y su hija "Fresas y Arándanos" tiene 12, ninguno de los
+# cuales aparece en la madre. Quedarse con un nivel perdía el otro: nivel 3
+# costaba 211 productos por día, nivel 2 costaba 50.
+#
+# El precio es pedir ~60 rutas en vez de 17 y que unos pocos productos lleguen
+# dos veces; scrape_all los descarta por `producto_id` y conserva la primera
+# aparición, que el lock ordena para que sea la de la categoría más fina.
+
+# Nodos que no interesan, por slug o por título. Se descartan ellos y todo lo
+# que cuelgue debajo.
+excluir:
+  - mascotas
+  - bazar
+
+# Cómo se asigna la familia a una categoría nueva. Gana la primera regla cuyo
+# término aparezca en el slug o en el nombre.
+#
+# Las categorías que ya estaban en targets.yaml conservan la familia que tenían
+# asignada a mano: estas reglas solo deciden sobre las nuevas.
+familias:
+  res:      [res, bisteck, lomo, asado, churrasco, malaya, cuadril, vacuno]
+  pollo:    [pollo, gallina, aves-y-huevos, huevo]
+  cerdo:    [cerdo, chuleta, panceta, bondiola, jamon]
+  pavo:     [pavo, pavita]
+  pescados: [pescado, marisco, atun, salmon]
+  parrilla: [parrilla, hamburguesa, anticucho, chorizo, embutido, apanado,
+             salchicha, hot-dog]
+  frutas:   [fruta, manzana, palta, platano, uva, naranja, mandarina, fresa,
+             melon, sandia, pina, papaya, mango, durazno, pera, limon,
+             granadilla, arandano, kiwi, ciruela, higo, coco, maracuya]
+  verduras: [verdura, papa, cebolla, tomate, lechuga, zanahoria, brocoli,
+             apio, esparrago, pimiento, choclo, zapallo, camote, ajo, aji,
+             hongo, seta, germinado, hierba, culantro, perejil, vainita,
+             arveja, haba, berenjena, pepino, col, coliflor, alcachofa,
+             beterraga, espinaca, acelga, rabanito, nabo, poro, yuca, olluco,
+             ensalada, hoja, hortaliza, tuberculo, oriental]

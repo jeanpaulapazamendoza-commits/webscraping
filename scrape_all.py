@@ -53,8 +53,20 @@ LOG_FILE      = DATA_DIR / "_run_log.txt"
 
 
 def cargar_targets() -> list[dict]:
-    with open("targets.yaml", encoding="utf-8") as f:
-        return yaml.safe_load(f)["targets"]
+    """Los targets de la corrida.
+
+    Se prefiere targets.lock.yaml, que genera descubrir.py desde el árbol de
+    categorías de cada cadena. targets.yaml queda como respaldo: es la lista
+    escrita a mano, de cuando las rutas se buscaban y se pegaban.
+    """
+    for ruta in ("targets.lock.yaml", "targets.yaml"):
+        if Path(ruta).exists():
+            with open(ruta, encoding="utf-8") as f:
+                targets = (yaml.safe_load(f) or {}).get("targets") or []
+            if targets:
+                print(f"Targets desde {ruta}")
+                return targets
+    raise RuntimeError("No hay targets: falta targets.lock.yaml o targets.yaml")
 
 
 def filtrar(targets, super_filter=None, familia_filter=None):
@@ -81,8 +93,35 @@ def guardar_snapshot(rows, super_name, slug, ts):
     return out
 
 
+def clave_producto(p: dict) -> tuple:
+    """Identidad de un producto dentro de una corrida.
+
+    `producto_id` es el ID de la cadena y es lo que corresponde comparar. La
+    URL queda como respaldo para los pocos casos en que el listado no trae ID.
+    """
+    pid = str(p.get("producto_id") or "").strip()
+    return (p.get("supermercado"), pid or str(p.get("url") or "").strip())
+
+
+def sin_repetidos(productos: list[dict], vistos: set) -> list[dict]:
+    """Los productos de este target que no aparecieron todavía en la corrida.
+
+    `vistos` se va llenando entre targets, así que el orden manda: gana la
+    primera aparición, y el lock pone los nodos finos primero para que la
+    categoría que quede sea la más específica.
+    """
+    nuevos = []
+    for p in productos:
+        clave = clave_producto(p)
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        nuevos.append(p)
+    return nuevos
+
+
 def correr_un_target(target, delay):
-    """Corre un solo target y devuelve (n_productos, error_msg | None)."""
+    """Corre un solo target y devuelve sus productos."""
     extractor = EXTRACTORES[target["supermercado"]]
     if target["supermercado"] == "tottus":
         # Tottus extractor recibe (url, delay)
@@ -95,10 +134,16 @@ def correr_un_target(target, delay):
             target["slug"],
             delay=delay,
         )
-    # Asegurar campo 'categoria' (los extractores ya lo ponen, pero por las dudas)
+    # La familia viene del target; la categoría NO se pisa.
+    #
+    # El extractor de VTEX deriva la categoría de la ruta que trae el propio
+    # producto, y es más fina que el target: pedir el departamento de carnes
+    # devuelve 24 categorías distintas, no una. Sobrescribirla acá con el slug
+    # del target tiraba esa precisión y dejaba una sola etiqueta por petición.
     for p in productos:
-        p["categoria"] = target["slug"]
-        p["familia"]   = target["familia"]
+        if not p.get("categoria"):
+            p["categoria"] = target["slug"]
+        p["familia"] = target["familia"]
     return productos
 
 
@@ -145,6 +190,13 @@ def main():
     exitos = []
     fallos = []
     todos_los_productos = []
+    # Un producto puede aparecer en más de un target: en Tottus se piden todos
+    # los niveles del menú porque cada nodo lista solo lo suyo, y unos pocos
+    # productos están en dos nodos a la vez. Nos quedamos con la primera
+    # aparición, y el lock ordena los nodos finos primero para que la categoría
+    # que gane sea la más específica.
+    vistos = set()
+    repetidos = 0
     t_inicio = time.time()
 
     for i, t in enumerate(targets, 1):
@@ -155,14 +207,21 @@ def main():
 
         try:
             productos = correr_un_target(t, args.delay)
-            append_historico(productos)
+            nuevos = sin_repetidos(productos, vistos)
+            repetidos += len(productos) - len(nuevos)
+            append_historico(nuevos)
+            # El snapshot queda sin deduplicar a propósito: es el registro de
+            # lo que devolvió esta categoría, y sirve justamente para ver la
+            # superposición entre nodos cuando el lock cambia.
             guardar_snapshot(productos, t["supermercado"], t["slug"], ts)
-            todos_los_productos.extend(productos)
-            con_desc = sum(1 for p in productos if p.get("tiene_descuento"))
-            msg = f"        ✓ {len(productos)} productos ({con_desc} con descuento)"
+            todos_los_productos.extend(nuevos)
+            con_desc = sum(1 for prod in nuevos if prod.get("tiene_descuento"))
+            ya = len(productos) - len(nuevos)
+            msg = (f"        ✓ {len(nuevos)} productos ({con_desc} con descuento)"
+                   + (f", {ya} ya vistos" if ya else ""))
             print(msg)
             log_lines.append(msg)
-            exitos.append((t, len(productos)))
+            exitos.append((t, len(nuevos)))
         except Exception as e:
             err = f"        ✗ ERROR: {type(e).__name__}: {e}"
             print(err)
@@ -183,6 +242,9 @@ def main():
         f"  Targets fallidos:    {len(fallos)}",
         f"  Productos totales:   {total_productos}",
     ]
+    if repetidos:
+        resumen.append(f"  Repetidos omitidos:  {repetidos} "
+                       f"(ya capturados por otra categoría)")
     if fallos:
         resumen.append("\n  Fallos:")
         for t, e in fallos:

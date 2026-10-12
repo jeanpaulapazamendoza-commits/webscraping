@@ -1,0 +1,58 @@
+name: Descubrir categorías (semanal)
+
+# Vuelve a resolver targets.lock.yaml contra el árbol de categorías de cada
+# cadena. Los menús cambian solos: aparecen subcategorías, desaparecen otras y
+# los CATG de Tottus se mueven de rama. Sin esto, el lock se queda con la foto
+# del día que se generó.
+#
+# Lunes 11:00 UTC (06:00 Lima), una hora antes del scraping diario, para que si
+# hay cambios el lock nuevo ya esté cuando corra la extracción.
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+
+jobs:
+  descubrir:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # descubrir.py sale con 1 si el lock se encogería más de 20% en alguna
+      # cadena, y en ese caso no escribe nada. Que el job falle es justamente
+      # el aviso: significa que un menú cambió de forma y conviene mirarlo
+      # antes de dejar de capturar categorías enteras.
+      - name: Resolver el lock
+        env:
+          TZ: America/Lima
+        run: python descubrir.py --aplicar | tee descubrimiento.txt
+
+      - name: Anotar el resultado en el resumen del job
+        if: always()
+        run: |
+          echo '### Descubrimiento de categorías' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat descubrimiento.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commitear el lock si cambió
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add targets.lock.yaml
+          git diff --quiet --cached && echo "sin cambios" && exit 0
+          git commit -m "chore: targets.lock.yaml al $(date -u +%Y-%m-%d)"
+          git push
