@@ -30,6 +30,8 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
+
+from red import TIMEOUT, crear_sesion
 import yaml
 
 DECLARACION = Path("categorias.yaml")
@@ -385,8 +387,9 @@ def main():
     args = ap.parse_args()
 
     declaracion = yaml.safe_load(DECLARACION.read_text(encoding="utf-8"))
-    sesion = requests.Session()
-    sesion.headers.update({"User-Agent": UA, "Accept": "application/json",
+    # Con reintentos: una falla de paso acá saca una categoría del lock, y la
+    # corrida diaria deja de capturarla sin que nada falle.
+    sesion = crear_sesion({"User-Agent": UA, "Accept": "application/json",
                            "Accept-Language": "es-PE,es;q=0.9"})
 
     targets = resolver(declaracion, sesion)

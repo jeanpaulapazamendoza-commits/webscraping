@@ -33,6 +33,7 @@ un Google Sheet en la nube.
 ├── targets.yaml                 # La lista a mano anterior; respaldo del lock
 ├── tottus_extractor.py          # Next.js __NEXT_DATA__
 ├── vtex_extractor.py            # Wong, Metro y Plaza Vea (API VTEX)
+├── red.py                       # Timeouts y reintentos compartidos
 ├── historico_io.py              # Carga/escritura del histórico particionado por mes
 ├── salud.py                     # Estado de la captura: atraso, huecos, badge
 ├── scrape_all.py                # Orquestador: corre todos los targets y exporta
@@ -123,6 +124,52 @@ la próxima lo recupera.
 ```bash
 python tools/migrar_a_parquet.py --aplicar   # la conversión, ya corrida
 ```
+
+## Cuando una extracción falla
+
+Medido sobre el histórico: **137 extracciones perdidas en 121 días**, en días
+que por lo demás corrieron bien. Son ~1,5% del total y están repartidas entre
+las cuatro cadenas, que es el perfil de una falla transitoria y no de una
+categoría rota. Hasta ahora cada extractor usaba una `requests.Session()`
+pelada, así que un 500 de paso perdía la categoría entera de ese día.
+
+Hay dos capas de reintento, y hacen cosas distintas:
+
+1. **En el transporte** (`red.py`): urllib3 repite la *misma* petición ante un
+   fallo de red, un 429 o un 5xx —incluidos los 520/522/524 del CDN—, con
+   espera creciente de 1, 2 y 4 segundos. Un 404 no se reintenta: si la ruta no
+   existe, repetirla no la va a crear.
+2. **Por target** (`scrape_all.py`): lo que sobrevive a la capa de abajo —una
+   caída a mitad de la paginación, una respuesta que no era el JSON esperado—
+   se vuelve a correr desde la página 1, hasta 3 intentos. Volver a correr es
+   seguro porque la extracción solo lee, y el deduplicado por `producto_id` se
+   encarga de lo que llegue dos veces.
+
+Los targets que salieron bien **recién al segundo intento** se informan en el
+resumen y quedan en `data/_salud.json`: son la señal temprana, porque el que
+hoy necesita dos intentos es el que mañana falla.
+
+### Nada de resultados parciales
+
+Lo que **no** se hace es guardar lo que se alcanzó a leer. Si falla la página 5
+de 8, registrar las primeras 4 guardaría 48 productos donde había 78, y los 30
+que faltan parecerían haber salido de catálogo: indistinguible de una baja
+real. Un dato truncado es peor que uno ausente, porque el ausente se ve en el
+semáforo y el truncado no.
+
+Eso hacía el extractor de Tottus, que atrapaba el error y cortaba el bucle: la
+corrida informaba éxito con la mitad de la categoría. Ahora la página que no se
+pudo leer hace fallar el target, y además:
+
+- **Tottus verifica la completitud.** La categoría declara cuántos productos
+  tiene antes de paginar, así que se compara contra lo obtenido. Con margen del
+  10%: el catálogo se mueve mientras recorremos las páginas y el declarado
+  difiere del obtenido de a uno (medido, en 2 de las 5 categorías de más de una
+  página). El margen tolera eso y sigue atrapando la pérdida de una página.
+- **VTEX avisa si no entra en el techo de páginas.** Llegar a `max_paginas` con
+  la última página llena significa que quedaron productos sin leer, y antes se
+  cortaba en silencio. Hoy la categoría más grande usa 8 de 20 páginas
+  (`wong/verduras`, 381 productos).
 
 ## Estado de la captura
 

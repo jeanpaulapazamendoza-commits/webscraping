@@ -32,6 +32,8 @@ from urllib.parse import urlparse, parse_qs
 
 import requests
 
+from red import TIMEOUT, crear_sesion
+
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
@@ -71,7 +73,7 @@ def resolver_category_id(host: str, path: str,
     Es una llamada que el propio sitio hace internamente para resolver rutas.
     """
     endpoint = f"{host}/api/catalog_system/pub/portal/pagetype/{path}"
-    r = session.get(endpoint, timeout=30)
+    r = session.get(endpoint, timeout=TIMEOUT)
     r.raise_for_status()
     data = r.json()
     # La respuesta tiene la forma:
@@ -124,7 +126,7 @@ def fetch_pagina(host: str, path: str, page: int,
     _to   = _from + PAGE_SIZE - 1
     url = (f"{host}/api/catalog_system/pub/products/search/"
            f"{path}?_from={_from}&_to={_to}")
-    r = session.get(url, timeout=30)
+    r = session.get(url, timeout=TIMEOUT)
     # VTEX: 200 = última página, 206 = hay más
     if r.status_code not in (200, 206):
         r.raise_for_status()
@@ -375,8 +377,7 @@ def normalizar_producto(p: dict, supermercado: str, categoria: str,
 
 def extraer(url: str, supermercado: str, categoria: str,
             delay: float = 1.0, max_paginas: int = 20) -> list[dict]:
-    session = requests.Session()
-    session.headers.update(HEADERS)
+    session = crear_sesion(HEADERS)
 
     host = host_from_url(url)
     path = path_from_url(url)
@@ -403,6 +404,16 @@ def extraer(url: str, supermercado: str, categoria: str,
         print(f" +{len(normalizados)} (total: {len(todos)})")
         if len(productos_raw) < PAGE_SIZE:
             break
+    else:
+        # Se agotaron las páginas permitidas y la última venía llena, así que
+        # quedaron productos sin leer. Cortar en silencio registraría una
+        # categoría truncada, que parece una baja de catálogo. Hoy la categoría
+        # más grande usa 8 de las 20 páginas (wong/verduras, 381 productos),
+        # así que esto no debería dispararse; si lo hace, hay que subir el
+        # techo, no ignorarlo.
+        raise RuntimeError(
+            f"La categoría no entra en {max_paginas} páginas "
+            f"({len(todos)} productos leídos y seguía habiendo): {path}")
 
     return todos
 

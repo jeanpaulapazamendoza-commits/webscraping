@@ -10,8 +10,13 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    # La corrida tarda ~10 minutos. El techo esta para que una cadena que
+    # responde pero se cuelga no deje el job colgado horas: con los reintentos,
+    # una peticion que no contesta cuesta mas que antes, y si eso pasa en
+    # muchos targets conviene cortar y que el badge lo muestre.
+    timeout-minutes: 45
     permissions:
-      contents: write   # necesario para commitear los CSVs
+      contents: write   # necesario para commitear el histórico
 
     steps:
       - name: Checkout repo

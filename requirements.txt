@@ -12,6 +12,10 @@
 # mergear.
 
 requests>=2.31.0,<3
+# red.py importa urllib3.util.Retry directo para la politica de reintentos.
+# Viene con requests, pero se declara por lo mismo que pyarrow: lo usamos
+# nosotros, no solo nuestras dependencias.
+urllib3>=2.0,<3
 pyyaml>=6.0,<7
 pandas>=2.3.0,<3
 # El historico esta en Parquet y lo lee/escribe pyarrow. Streamlit ya lo

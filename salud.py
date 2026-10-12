@@ -190,11 +190,20 @@ def badge(est: dict, fallas: list[str], notas: list[str] | None = None) -> dict:
 
 
 def publicar(est: dict, fallas: list[str], notas: list[str] | None = None,
+             corrida: dict | None = None,
              destino: Path = DATA_DIR) -> list[Path]:
-    """Escribe el estado y el badge. Devuelve las rutas escritas."""
+    """Escribe el estado y el badge. Devuelve las rutas escritas.
+
+    `corrida` es lo que solo sabe la corrida y el histórico no delata: qué
+    targets fallaron y cuáles salieron bien recién al segundo intento. Se
+    guarda para poder mirar la tendencia: si los reintentos empiezan a crecer,
+    algo se está rompiendo aunque todavía no falle nada.
+    """
     destino.mkdir(parents=True, exist_ok=True)
     notas = notas if notas is not None else avisos(est)
     completo = dict(est, problemas=fallas, avisos=notas)
+    if corrida:
+        completo["corrida"] = corrida
     rutas = []
     for nombre, datos in ((ARCHIVO_ESTADO.name, completo),
                           (ARCHIVO_BADGE.name, badge(est, fallas, notas))):

@@ -53,6 +53,15 @@ DATA_DIR      = Path("data")
 SNAPSHOTS_DIR = DATA_DIR / "snapshots"
 LOG_FILE      = DATA_DIR / "_run_log.txt"
 
+# Tres intentos por target, además de los reintentos de red que hace red.py.
+# Medido sobre el histórico: 137 extracciones perdidas en 121 días, ~1,5% de
+# las extracciones, y en días que por lo demás corrieron bien. Ese perfil es de
+# falla transitoria, así que el segundo intento debería alcanzar casi siempre.
+INTENTOS_POR_TARGET = 3
+# Espera creciente entre intentos: 5 s y después 10 s. Si una cadena está
+# teniendo un mal momento, volver a golpearla de inmediato no ayuda.
+ESPERA_ENTRE_INTENTOS = 5.0
+
 
 def cargar_targets() -> list[dict]:
     """Los targets de la corrida.
@@ -103,6 +112,34 @@ def clave_producto(p: dict) -> tuple:
     """
     pid = str(p.get("producto_id") or "").strip()
     return (p.get("supermercado"), pid or str(p.get("url") or "").strip())
+
+
+def correr_con_reintentos(target, delay, intentos=INTENTOS_POR_TARGET):
+    """Corre un target, reintentando desde cero si falla.
+
+    Es la segunda capa de reintento. La primera está en red.py y repite la
+    misma petición cuando el fallo es de red o un 5xx; esta se ocupa de lo que
+    sobrevive a eso: una caída a mitad de la paginación, una respuesta que no
+    era el JSON esperado, una categoría que devolvió menos de lo que declaraba.
+    En esos casos no alcanza con repetir una petición, hay que empezar de nuevo.
+
+    Volver a correr es seguro: la extracción solo lee, y sin_repetidos() se
+    encarga de que un producto que llegó dos veces se escriba una.
+
+    Devuelve (productos, intentos_usados) para que la corrida pueda informar
+    cuántos targets necesitaron ayuda — si eso sube, algo está pasando aunque
+    no falle nada.
+    """
+    for intento in range(1, intentos + 1):
+        try:
+            return correr_un_target(target, delay), intento
+        except Exception as e:
+            if intento == intentos:
+                raise
+            espera = ESPERA_ENTRE_INTENTOS * intento
+            print(f"        ↻ intento {intento}/{intentos} falló "
+                  f"({type(e).__name__}: {e}); reintento en {espera:.0f}s")
+            time.sleep(espera)
 
 
 def sin_repetidos(productos: list[dict], vistos: set) -> list[dict]:
@@ -191,6 +228,9 @@ def main():
 
     exitos = []
     fallos = []
+    # Los que salieron bien pero no de primera. Se informan porque son la señal
+    # temprana: un target que hoy necesita dos intentos es el que mañana falla.
+    reintentados = []
     todos_los_productos = []
     # Un producto puede aparecer en más de un target: en Tottus se piden todos
     # los niveles del menú porque cada nodo lista solo lo suyo, y unos pocos
@@ -219,7 +259,9 @@ def main():
         log_lines.append(header)
 
         try:
-            productos = correr_un_target(t, args.delay)
+            productos, intentos = correr_con_reintentos(t, args.delay)
+            if intentos > 1:
+                reintentados.append((t, intentos))
             nuevos = sin_repetidos(productos, vistos)
             repetidos += len(productos) - len(nuevos)
             append_historico(nuevos)
@@ -262,6 +304,11 @@ def main():
     if repetidos:
         resumen.append(f"  Repetidos omitidos:  {repetidos} "
                        f"(ya capturados por otra categoría)")
+    if reintentados:
+        resumen.append(f"  Salvados a reintento: {len(reintentados)}")
+        for t, n in reintentados:
+            resumen.append(f"    - {t['supermercado']}/{t['slug']}: "
+                           f"bien al intento {n}")
     if fallos:
         resumen.append("\n  Fallos:")
         for t, e in fallos:
@@ -324,10 +371,10 @@ def main():
     # ── Semáforo ──────────────────────────────────────────────────────────────
     # Va al final y después de haber escrito todo: el código de salida nunca
     # decide si el dato se guarda. Primero se guarda, después se dictamina.
-    return publicar_salud(targets, exitos, fallos, log_lines)
+    return publicar_salud(targets, exitos, fallos, reintentados, log_lines)
 
 
-def publicar_salud(targets, exitos, fallos, log_lines) -> int:
+def publicar_salud(targets, exitos, fallos, reintentados, log_lines) -> int:
     """Escribe el estado de la captura y devuelve el código de salida.
 
     Salir con error es la mitad del semáforo. La otra mitad, data/_badge.json,
@@ -350,7 +397,17 @@ def publicar_salud(targets, exitos, fallos, log_lines) -> int:
     elif len(fallos) > len(targets) * 0.2:
         problemas.append(f"{len(fallos)} de {len(targets)} targets fallaron")
 
-    for ruta in salud.publicar(est, problemas, avisos):
+    corrida = {
+        "targets": len(targets),
+        "exitosos": len(exitos),
+        "fallidos": len(fallos),
+        "salvados_a_reintento": len(reintentados),
+        "fallos": [{"cadena": t["supermercado"], "categoria": t["slug"],
+                    "error": e} for t, e in fallos],
+        "reintentos": [{"cadena": t["supermercado"], "categoria": t["slug"],
+                        "intentos": n} for t, n in reintentados],
+    }
+    for ruta in salud.publicar(est, problemas, avisos, corrida):
         print(f"  {ruta}")
     linea = (f"  último día {est['ultimo_dia']} · "
              f"{est.get('productos_ultimo_dia')} productos · "

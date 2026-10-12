@@ -23,8 +23,14 @@ from urllib.parse import urlparse
 
 import requests
 
+from red import TIMEOUT, crear_sesion
+
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+# Cuánto de lo que la categoría declara hay que haber obtenido para dar la
+# extracción por buena. Ver la nota en extraer().
+COMPLETITUD_MINIMA = 0.9
 
 HEADERS = {
     "User-Agent": UA,
@@ -54,7 +60,7 @@ def fetch_next_data(url: str, session: requests.Session, page: int = 1) -> dict:
         fetch_url = f"{url}{sep}page={page}"
     else:
         fetch_url = url
-    r = session.get(fetch_url, timeout=30, allow_redirects=True)
+    r = session.get(fetch_url, timeout=TIMEOUT, allow_redirects=True)
     r.raise_for_status()
     # Detectar si nos redirigieron a /notFound
     if "/notFound" in r.url:
@@ -185,8 +191,7 @@ def categoria_from_url(url: str) -> str:
 
 
 def extraer(url: str, supermercado: str = "tottus", delay: float = 1.5) -> list[dict]:
-    session = requests.Session()
-    session.headers.update(HEADERS)
+    session = crear_sesion(HEADERS)
 
     print(f"[1] Cargando página 1: {url}")
     next_data = fetch_next_data(url, session, page=1)
@@ -211,14 +216,27 @@ def extraer(url: str, supermercado: str = "tottus", delay: float = 1.5) -> list[
     for page in range(2, total_paginas + 1):
         time.sleep(delay)
         print(f"[{page}] Cargando página {page}...")
-        try:
-            data = fetch_next_data(url, session, page=page)
-            results = data["props"]["pageProps"]["results"]
-            todos.extend(normalizar_producto(p, categoria, supermercado) for p in results)
-            print(f"    Página {page}: +{len(results)} productos")
-        except Exception as e:
-            print(f"    ⚠ Error en página {page}: {e}")
-            break
+        # Sin try/except a propósito. Antes esto atrapaba el error y cortaba
+        # el bucle, así que un fallo en la página 3 de 5 devolvía dos páginas y
+        # la corrida informaba éxito: los productos que faltaban parecían
+        # haber salido de catálogo, que es indistinguible de una baja real. Un
+        # dato truncado es peor que uno ausente, porque el ausente se ve. De
+        # las fallas de paso se ocupan los reintentos de red.py y de
+        # scrape_all; la que sobrevive a los dos hace fallar el target.
+        data = fetch_next_data(url, session, page=page)
+        results = data["props"]["pageProps"]["results"]
+        todos.extend(normalizar_producto(p, categoria, supermercado) for p in results)
+        print(f"    Página {page}: +{len(results)} productos")
+
+    # Tottus declara cuántos productos hay antes de paginar, así que se puede
+    # verificar. Con margen: el catálogo se mueve mientras recorremos las
+    # páginas y el declarado difiere del obtenido de a uno —medido, en 2 de las
+    # 5 categorías que tienen más de una página—. El margen tolera eso y sigue
+    # atrapando la pérdida de una página entera, que es el riesgo real.
+    if len(todos) < total * COMPLETITUD_MINIMA:
+        raise RuntimeError(
+            f"Se obtuvieron {len(todos)} de los {total} productos que declara "
+            f"la categoría ({total_paginas} páginas): {url}")
 
     return todos
 
