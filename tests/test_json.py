@@ -183,6 +183,28 @@ def test_el_resumen_agrega_por_dia_cadena_y_familia():
     assert filas[("metro", "pollo")]["minimo"] == 5.0
 
 
+def test_la_salida_es_json_valido_de_verdad():
+    """Python escribe NaN e Infinity sin protestar y ninguno es JSON válido:
+    JSON.parse del navegador rechaza el archivo entero. Esto se cuela apenas una
+    celda viene vacía, así que hay que verificarlo de forma estricta."""
+    import math
+
+    def estricto(x):
+        raise AssertionError(f"el JSON trae {x}, que JSON.parse rechaza")
+
+    salida = _construir([
+        _fila("2026-10-01", "wong|1", 9.9, marca="", nombre_tarjeta=""),
+        _fila("2026-10-01", "wong|2", 8.0, marca="Marca"),
+    ])
+    for nombre, datos in salida.items():
+        json.loads(json.dumps(datos, allow_nan=False), parse_constant=estricto)
+
+    p = {x["id"]: x for x in salida["indice"]["productos"]}
+    assert p["wong|1"]["marca"] is None, "una marca vacía es null, no NaN"
+    assert p["wong|1"]["tarjeta_nombre"] is None
+    assert p["wong|2"]["marca"] == "Marca"
+
+
 if __name__ == "__main__":
     fallos = 0
     for nombre, fn in sorted(globals().items()):

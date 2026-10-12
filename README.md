@@ -48,6 +48,32 @@ python scrape_all.py --no-sheets           # sin exportar a Google Sheets
 python scrape_all.py --excel               # además generar el XLSX local
 ```
 
+## La web (Vercel)
+
+`web/` es un sitio estático sin build ni dependencias: tres archivos (HTML, CSS
+y JS) que leen los JSON que deja la corrida diaria en `web/datos/`. No hay
+backend, ni base de datos, ni funciones de servidor — el navegador baja 291 KB
+comprimidos y con eso tiene búsqueda, comparación entre cadenas y el evolutivo
+completo.
+
+Para verla en local:
+
+```bash
+cd web && python -m http.server 8777
+```
+
+Para desplegarla en Vercel: importar el repo y poner **Root Directory = `web`**.
+Framework Preset queda en *Other*; no hay comando de build. Cada push del bot
+con el dato del día redespliega solo.
+
+Los JSON los genera `construir_json.py`, que `scrape_all.py` llama al final de
+cada corrida:
+
+```bash
+python construir_json.py            # regenerar a mano
+python scrape_all.py --no-json      # saltearlo en una corrida
+```
+
 ## Tests
 
 Pruebas de humo del dashboard: corren `app.py` entera con el harness oficial de

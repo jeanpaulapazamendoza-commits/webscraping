@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Precios Supermercados Perú</title>
+<meta name="description" content="Comparador de precios de Tottus, Wong, Metro y Plaza Vea, con histórico diario.">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <div class="contenedor cabecera-fila">
+    <div class="marca">
+      <span class="marca-icono" aria-hidden="true">S/</span>
+      <div>
+        <h1>Precios Supermercados Perú</h1>
+        <p class="marca-sub">Tottus · Wong · Metro · Plaza Vea</p>
+      </div>
+    </div>
+    <div class="frescura" id="frescura" aria-live="polite"></div>
+  </div>
+</header>
+
+<main class="contenedor">
+
+  <form class="buscador" id="formulario" role="search">
+    <label class="visually-hidden" for="q">Buscar un producto</label>
+    <svg class="lupa" viewBox="0 0 20 20" aria-hidden="true">
+      <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/>
+      <line x1="12.8" y1="12.8" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <input id="q" type="search" autocomplete="off" placeholder="pollo fresco, palta, lomo fino…" spellcheck="false">
+    <button type="button" class="limpiar" id="limpiar" hidden aria-label="Limpiar la búsqueda">×</button>
+  </form>
+
+  <div class="sugerencias" id="sugerencias"></div>
+
+  <div class="filtros" id="filtros">
+    <fieldset class="grupo-filtro">
+      <legend>Cadena</legend>
+      <div class="chips" id="chips-cadena"></div>
+    </fieldset>
+    <fieldset class="grupo-filtro">
+      <legend>Familia</legend>
+      <div class="chips" id="chips-familia"></div>
+    </fieldset>
+    <fieldset class="grupo-filtro">
+      <legend>Mostrar</legend>
+      <div class="chips">
+        <label class="chip chip-check">
+          <input type="checkbox" id="solo-descuento"> Solo con descuento
+        </label>
+        <label class="chip chip-check">
+          <input type="checkbox" id="incluir-agotados"> Incluir sin stock
+        </label>
+      </div>
+    </fieldset>
+  </div>
+
+  <p class="conteo" id="conteo" aria-live="polite"></p>
+
+  <div id="resultados" class="resultados"></div>
+
+  <p class="vacio" id="vacio" hidden></p>
+
+</main>
+
+<footer class="pie">
+  <div class="contenedor">
+    <p id="pie-dato"></p>
+    <p>Los precios son los publicados en la web de cada cadena. El precio con
+       tarjeta aplica solo pagando con la tarjeta de ese supermercado.</p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

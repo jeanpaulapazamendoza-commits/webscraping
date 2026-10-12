@@ -74,6 +74,19 @@ def _redondear(valor):
     return None if pd.isna(valor) else round(float(valor), 2)
 
 
+def _texto(valor):
+    """Texto o None. Nunca NaN.
+
+    pandas devuelve NaN para las celdas vacías, y `NaN or None` no lo filtra
+    porque NaN es truthy. Eso dejaba literales NaN en el JSON, que no son JSON
+    válido: JSON.parse del navegador falla y el archivo entero queda inservible.
+    """
+    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+        return None
+    texto = str(valor).strip()
+    return texto or None
+
+
 def construir_indice(df: pd.DataFrame) -> dict:
     """Un producto por entrada, con su estado en el último día que se lo vio."""
     ultimo = df["dia"].max()
@@ -82,19 +95,19 @@ def construir_indice(df: pd.DataFrame) -> dict:
     for _, r in hoy.iterrows():
         productos.append({
             "id": r["clave"],
-            "cadena": r["supermercado"],
-            "nombre": r["nombre"],
-            "categoria": r["categoria"],
-            "familia": r["familia"],
-            "marca": r["marca"] or None,
+            "cadena": _texto(r["supermercado"]),
+            "nombre": _texto(r["nombre"]),
+            "categoria": _texto(r["categoria"]),
+            "familia": _texto(r["familia"]),
+            "marca": _texto(r["marca"]),
             "precio": _redondear(r["precio_descuento"]),
             "regular": _redondear(r["precio_regular"]),
             "unidad": _redondear(r.get("precio_unidad")),
             "descuento": _redondear(r["descuento_pct"]),
             "tarjeta": _redondear(r.get("precio_tarjeta")),
-            "tarjeta_nombre": r.get("nombre_tarjeta") or None,
+            "tarjeta_nombre": _texto(r.get("nombre_tarjeta")),
             "disponible": _booleano(r.get("disponible")),
-            "url": r["url"] or None,
+            "url": _texto(r["url"]),
         })
     productos.sort(key=lambda p: (p["cadena"], p["nombre"]))
     return {"dia": ultimo, "productos": productos}
@@ -136,7 +149,14 @@ def construir_resumen(df: pd.DataFrame) -> list:
            .reset_index())
     g["mediana"] = g["mediana"].round(2)
     g["minimo"] = g["minimo"].round(2)
-    return g.rename(columns={"supermercado": "cadena"}).to_dict("records")
+    registros = g.rename(columns={"supermercado": "cadena"}).to_dict("records")
+    # Una familia en la que ningún producto tuvo precio publicado ese día deja
+    # la mediana en NaN, que no es JSON válido.
+    for r in registros:
+        for campo in ("mediana", "minimo"):
+            if pd.isna(r[campo]):
+                r[campo] = None
+    return registros
 
 
 def construir_salud(df: pd.DataFrame, generado: str) -> dict:
@@ -169,7 +189,11 @@ def escribir(destino: Path, nombre: str, datos) -> int:
     destino.mkdir(parents=True, exist_ok=True)
     ruta = destino / nombre
     # separators sin espacios: son archivos para la red, no para leer a mano.
-    texto = json.dumps(datos, ensure_ascii=False, separators=(",", ":"))
+    # allow_nan=False a propósito: Python escribe NaN e Infinity sin chistar, y
+    # ninguno de los dos es JSON válido. Preferimos que reviente acá antes que
+    # publicar un archivo que JSON.parse rechaza entero.
+    texto = json.dumps(datos, ensure_ascii=False, separators=(",", ":"),
+                       allow_nan=False)
     ruta.write_text(texto, encoding="utf-8")
     return len(texto.encode("utf-8"))
 
