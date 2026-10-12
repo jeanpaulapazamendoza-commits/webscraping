@@ -171,16 +171,21 @@ def construir_salud(df: pd.DataFrame, generado: str) -> dict:
     return dict(est, avisos=salud.avisos(est))
 
 
-def escribir(destino: Path, nombre: str, datos) -> int:
+def serializar(datos) -> str:
+    """Los datos como texto JSON. Acá es donde esto se rompe, si se rompe.
+
+    separators sin espacios: son archivos para la red, no para leer a mano.
+    allow_nan=False a propósito: Python escribe NaN e Infinity sin chistar, y
+    ninguno de los dos es JSON válido. Preferimos que reviente acá antes que
+    publicar un archivo que JSON.parse rechaza entero.
+    """
+    return json.dumps(datos, ensure_ascii=False, separators=(",", ":"),
+                      allow_nan=False)
+
+
+def escribir(destino: Path, nombre: str, texto: str) -> int:
     destino.mkdir(parents=True, exist_ok=True)
-    ruta = destino / nombre
-    # separators sin espacios: son archivos para la red, no para leer a mano.
-    # allow_nan=False a propósito: Python escribe NaN e Infinity sin chistar, y
-    # ninguno de los dos es JSON válido. Preferimos que reviente acá antes que
-    # publicar un archivo que JSON.parse rechaza entero.
-    texto = json.dumps(datos, ensure_ascii=False, separators=(",", ":"),
-                       allow_nan=False)
-    ruta.write_text(texto, encoding="utf-8")
+    (destino / nombre).write_text(texto, encoding="utf-8")
     return len(texto.encode("utf-8"))
 
 
@@ -203,9 +208,17 @@ def construir(destino: Path = SALIDA) -> dict:
         ("resumen.json", construir_resumen(df)),
         ("salud.json", construir_salud(df, generado)),
     ]
+    # Se serializa todo ANTES de escribir nada. La serialización es donde esto
+    # falla —allow_nan=False revienta con un NaN, que ya pasó— y si se
+    # escribiera pieza por pieza, un fallo en series.json dejaría publicado un
+    # índice nuevo con las series de ayer: la web mostraría productos sin
+    # historia, que es peor que no haber actualizado nada. Mejor publicar los
+    # cuatro archivos o ninguno.
+    textos = [(nombre, serializar(datos)) for nombre, datos in piezas]
+
     pesos = {}
-    for nombre, datos in piezas:
-        pesos[nombre] = escribir(destino, nombre, datos)
+    for nombre, texto in textos:
+        pesos[nombre] = escribir(destino, nombre, texto)
         print(f"  {nombre:16s} {pesos[nombre]/1024:>8,.0f} KB")
     print(f"  {'total':16s} {sum(pesos.values())/1024:>8,.0f} KB en {destino}")
     return pesos

@@ -61,6 +61,16 @@ HOJA_SNAPSHOT = "Snapshot Actual"
 HOJA_RESUMEN = "Resumen Competitivo"
 
 
+class SinConfigurar(RuntimeError):
+    """Falta la configuración para exportar: no hay nada que arreglar.
+
+    Existe para separar dos cosas que antes daban el mismo aviso en la corrida:
+    que la exportación no esté configurada —que es un estado legítimo, y de
+    hecho el actual— y que esté configurada y se haya roto. La primera es un
+    "omitido" y la segunda es un fallo que alguien tiene que mirar.
+    """
+
+
 def _autenticar():
     creds_json = os.environ.get("GOOGLE_CREDS_JSON")
     if creds_json:
@@ -82,7 +92,7 @@ def _autenticar():
             authorized_user_filename=token_file,
         )
 
-    raise RuntimeError(
+    raise SinConfigurar(
         "No hay credenciales de Google: definí GOOGLE_CREDS_JSON/GOOGLE_CREDS_FILE "
         f"(service account, buscado en '{creds_file}') o poné un "
         f"GOOGLE_OAUTH_CLIENT_FILE (OAuth de usuario, buscado en '{oauth_client_file}')"
@@ -92,7 +102,7 @@ def _autenticar():
 def _abrir_spreadsheet(cliente):
     sheet_id = os.environ.get("GOOGLE_SHEET_ID")
     if not sheet_id:
-        raise RuntimeError("Falta la variable de entorno GOOGLE_SHEET_ID")
+        raise SinConfigurar("Falta la variable de entorno GOOGLE_SHEET_ID")
     return cliente.open_by_key(sheet_id)
 
 

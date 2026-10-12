@@ -114,6 +114,57 @@ def clave_producto(p: dict) -> tuple:
     return (p.get("supermercado"), pid or str(p.get("url") or "").strip())
 
 
+def correr_etapa(nombre: str, fn, critica: bool) -> dict:
+    """Corre una etapa posterior a la captura y devuelve cómo le fue.
+
+    Tres resultados, no dos, porque antes "no está configurado" y "se rompió"
+    daban el mismo ⚠ y era imposible distinguirlos: la exportación a Sheets
+    avisaba todos los días que no había credenciales, con el mismo aspecto que
+    tendría un error de verdad.
+
+      · "ok"       salió bien.
+      · "omitido"  falta la configuración. Es un estado legítimo, no un fallo.
+                   La etapa lo informa devolviendo el motivo.
+      · "falló"    estaba configurada y se rompió. Esto hay que mirarlo.
+
+    `critica` dice si un fallo deja un entregable desactualizado. El JSON del
+    frontend lo es: si no se reconstruye, la web sigue publicando los datos de
+    ayer sin decir que son de ayer. La réplica en Sheets no, porque el dato
+    está igual en el repo y en la web, y un error de la API de Google se
+    arregla solo en la corrida siguiente.
+    """
+    print(f"\n{'─'*70}")
+    print(nombre)
+    print("─" * 70)
+    try:
+        motivo = fn()
+    except Exception as e:
+        print(f"  ⚠ falló: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return {"etapa": nombre, "estado": "falló", "critica": critica,
+                "error": f"{type(e).__name__}: {e}"}
+    if motivo:
+        print(f"  · omitido: {motivo}")
+        return {"etapa": nombre, "estado": "omitido", "motivo": str(motivo)}
+    return {"etapa": nombre, "estado": "ok"}
+
+
+def clasificar_etapas(etapas: list[dict]) -> tuple[list[str], list[str]]:
+    """Reparte los fallos de las etapas entre problemas y avisos.
+
+    Las omitidas no cuentan para ninguno de los dos: que la réplica en Sheets
+    no esté configurada es un estado legítimo —hoy es el estado real— y no algo
+    que haya que arreglar.
+    """
+    problemas, avisos = [], []
+    for e in etapas:
+        if e.get("estado") != "falló":
+            continue
+        texto = f"{e['etapa'].rstrip('. ')}: {e['error']}"
+        (problemas if e.get("critica") else avisos).append(texto)
+    return problemas, avisos
+
+
 def correr_con_reintentos(target, delay, intentos=INTENTOS_POR_TARGET):
     """Corre un target, reintentando desde cero si falla.
 
@@ -327,54 +378,53 @@ def main():
     print(f"  Snapshots:  {SNAPSHOTS_DIR}/")
     print(f"  Log:        {LOG_FILE}")
 
-    # ── Export a Google Sheets (default) ──────────────────────────────────────
-    if exitos and not args.no_sheets:
-        print(f"\n{'─'*70}")
-        print("Exportando a Google Sheets...")
-        print("─" * 70)
+    # ── Etapas posteriores a la captura ───────────────────────────────────────
+    # El dato ya está en el histórico, así que ninguna de estas puede tirar la
+    # corrida. Pero tampoco pueden fallar en silencio, que es lo que pasaba:
+    # las tres iban envueltas en un try/except que imprimía un ⚠ y seguía.
+    etapas = []
+
+    def exportar_sheets():
+        import export_sheets
         try:
-            import export_sheets
             export_sheets.exportar(rows_nuevas=todos_los_productos)
-        except Exception as e:
-            print(f"  ⚠ No se pudo exportar a Google Sheets: {e}")
+        except export_sheets.SinConfigurar as e:
+            # El import queda adentro a propósito, para que el pipeline corra
+            # sin gspread instalado. Por eso el motivo vuelve como valor y no
+            # como excepción: correr_etapa no puede conocer esa clase.
+            return str(e)
 
-    # ── JSON para el frontend ─────────────────────────────────────────────────
-    # Esto es lo que hace de "build": la web no calcula nada, solo lee estos
-    # archivos. Va antes que el XLSX porque es parte del entregable diario.
-    if exitos and not args.no_json:
-        print(f"\n{'─'*70}")
-        print("Construyendo el JSON del frontend...")
-        print("─" * 70)
-        try:
-            import construir_json
-            construir_json.construir()
-        except Exception as e:
-            print(f"  ⚠ No se pudo construir el JSON: {e}")
+    def construir_el_json():
+        import construir_json
+        construir_json.construir()
 
-    # ── Generación opcional del XLSX para Power BI ─────────────────────────────
-    if exitos and args.excel and Path("build_excel.py").exists():
-        print(f"\n{'─'*70}")
-        print("Generando XLSX normalizado para Power BI...")
-        print("─" * 70)
+    def generar_xlsx():
         import subprocess
-        try:
-            r = subprocess.run(
-                [sys.executable, "build_excel.py"],
-                check=False,
-                capture_output=False,
-            )
-            if r.returncode != 0:
-                print(f"  ⚠ build_excel.py salió con código {r.returncode}")
-        except Exception as e:
-            print(f"  ⚠ No se pudo generar el XLSX: {e}")
+        r = subprocess.run([sys.executable, "build_excel.py"], check=False)
+        if r.returncode != 0:
+            raise RuntimeError(f"build_excel.py salió con código {r.returncode}")
+
+    if exitos and not args.no_sheets:
+        etapas.append(correr_etapa(
+            "Exportando a Google Sheets...", exportar_sheets, critica=False))
+    if exitos and not args.no_json:
+        etapas.append(correr_etapa(
+            "Construyendo el JSON del frontend...", construir_el_json,
+            critica=True))
+    if exitos and args.excel and Path("build_excel.py").exists():
+        etapas.append(correr_etapa(
+            "Generando XLSX normalizado para Power BI...", generar_xlsx,
+            critica=False))
 
     # ── Semáforo ──────────────────────────────────────────────────────────────
     # Va al final y después de haber escrito todo: el código de salida nunca
     # decide si el dato se guarda. Primero se guarda, después se dictamina.
-    return publicar_salud(targets, exitos, fallos, reintentados, log_lines)
+    return publicar_salud(targets, exitos, fallos, reintentados, etapas,
+                          log_lines)
 
 
-def publicar_salud(targets, exitos, fallos, reintentados, log_lines) -> int:
+def publicar_salud(targets, exitos, fallos, reintentados, etapas,
+                   log_lines) -> int:
     """Escribe el estado de la captura y devuelve el código de salida.
 
     Salir con error es la mitad del semáforo. La otra mitad, data/_badge.json,
@@ -397,6 +447,10 @@ def publicar_salud(targets, exitos, fallos, reintentados, log_lines) -> int:
     elif len(fallos) > len(targets) * 0.2:
         problemas.append(f"{len(fallos)} de {len(targets)} targets fallaron")
 
+    graves, leves = clasificar_etapas(etapas)
+    problemas += graves
+    avisos += leves
+
     corrida = {
         "targets": len(targets),
         "exitosos": len(exitos),
@@ -406,6 +460,7 @@ def publicar_salud(targets, exitos, fallos, reintentados, log_lines) -> int:
                     "error": e} for t, e in fallos],
         "reintentos": [{"cadena": t["supermercado"], "categoria": t["slug"],
                         "intentos": n} for t, n in reintentados],
+        "etapas": etapas,
     }
     for ruta in salud.publicar(est, problemas, avisos, corrida):
         print(f"  {ruta}")

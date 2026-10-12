@@ -171,6 +171,45 @@ pudo leer hace fallar el target, y además:
   cortaba en silencio. Hoy la categoría más grande usa 8 de 20 páginas
   (`wong/verduras`, 381 productos).
 
+## Lo que corre después de la captura
+
+Tres etapas: la réplica en Google Sheets, el JSON del frontend y —con
+`--excel`— el XLSX. Cuando arrancan, el dato ya está en el histórico, así que
+ninguna puede tirar la corrida. Pero antes tampoco podían avisar: las tres
+iban envueltas en un `try/except` que imprimía un `⚠` y seguía de largo.
+
+Ahora cada una informa uno de **tres** resultados, no dos:
+
+| | qué significa | efecto |
+|---|---|---|
+| `ok` | salió bien | — |
+| `omitido` | falta la configuración | ninguno: es un estado legítimo |
+| `falló` | estaba configurada y se rompió | aviso, o problema si es crítica |
+
+La distinción entre *omitido* y *falló* es la que faltaba. La exportación a
+Sheets avisaba **todos los días** que no había credenciales, con exactamente el
+mismo aspecto que tendría un error de verdad; hoy esa exportación no está
+configurada y eso no es algo que nadie tenga que arreglar.
+
+Y `falló` pesa distinto según lo que deje viejo:
+
+- **El JSON del frontend es crítico.** Si no se reconstruye, la web sigue
+  publicando los datos de ayer sin decir que son de ayer. La corrida sale con
+  error y el badge se pone en rojo.
+- **Sheets no lo es.** El dato está igual en el repo y en la web, y un error de
+  la API de Google se arregla solo en la corrida siguiente. Queda como aviso.
+
+Todo esto se guarda en `data/_salud.json`, bajo `corrida.etapas`, con el error
+textual cuando hubo uno.
+
+### El JSON se publica entero o no se publica
+
+Los cuatro archivos se serializan **antes** de escribir el primero. La
+serialización es donde esto se rompe —`allow_nan=False` revienta con un NaN, y
+ya pasó— y escribiendo pieza por pieza un fallo en `series.json` dejaba
+publicado un índice nuevo con las series de ayer: la web mostraba productos sin
+historia, que es peor que no haber actualizado nada.
+
 ## Estado de la captura
 
 ```bash
