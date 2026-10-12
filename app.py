@@ -16,11 +16,13 @@ Para deploy:
     2. share.streamlit.io → conectar repo → seleccionar app.py
 """
 
+import io
+
 import pandas as pd
 import streamlit as st
 import altair as alt
 
-from historico_io import cargar_historico
+from historico_io import DATA_DIR
 from normalizar import normalizar_df
 
 st.set_page_config(
@@ -39,33 +41,114 @@ alt.data_transformers.enable("default", max_rows=50_000)
 
 # ── Carga de datos ──────────────────────────────────────────────────────────
 
-COLS_PRECIO = [
-    "precio_tarjeta", "precio_internet", "precio_unidad", "precio_normal",
+# El dashboard no muestra ni dibuja sku_id, imagen, vendedor, nombre_tarjeta,
+# precio_unidad ni tarjeta_descuento_pct. Cargarlas costaba memoria sin dar
+# nada a cambio: imagen y url solas son la mitad del peso del CSV. url y marca
+# sí se usan, pero únicamente en la tabla del snapshot.
+COLS_VISTA = [
+    "supermercado", "categoria", "familia", "nombre", "producto_id",
+    "marca", "url", "fecha_extraccion", "tiene_descuento", "descuento_pct",
+    "precio_tarjeta", "precio_internet", "precio_normal",
     "precio_descuento", "precio_regular",
 ]
-COLS_NUMERICAS = COLS_PRECIO + ["tarjeta_descuento_pct", "descuento_pct"]
+COLS_PRECIO = [
+    "precio_tarjeta", "precio_internet", "precio_normal",
+    "precio_descuento", "precio_regular",
+]
+# Columnas de baja cardinalidad: 4 supermercados y ~80 categorías repetidos
+# 438.000 veces. Como categoría pandas guarda el texto una vez y un entero por
+# fila, y son las que más pesaban.
+COMO_CATEGORIA = ["supermercado", "categoria", "familia", "producto_id", "marca"]
 
 
 @st.cache_data(ttl=3600)
 def cargar_datos() -> pd.DataFrame:
-    df = cargar_historico()
-    if df.empty:
-        return df
-    df["fecha_extraccion"] = pd.to_datetime(df["fecha_extraccion"])
-    for c in COLS_NUMERICAS:
+    """Vista liviana del histórico, la que alimenta todas las pestañas.
+
+    La versión anterior leía las 21 columnas como texto y recién después
+    convertía, así que durante el arranque coexistían dos copias del histórico
+    completo: 573 MB del crudo más 396 MB del convertido. Streamlit Community
+    Cloud arranca con 690 MB de RAM, así que la app se moría al bootear. Leyendo
+    solo las columnas que el dashboard usa, y con los tipos correctos desde el
+    read_csv, el mismo histórico ocupa 109 MB.
+    """
+    partes = []
+    for ruta in sorted(DATA_DIR.glob("historico_*.csv")):
+        p = pd.read_csv(
+            ruta,
+            usecols=lambda c: c in COLS_VISTA,
+            dtype={"nombre": "string", "url": "string"},
+            parse_dates=["fecha_extraccion"],
+            encoding="utf-8-sig",
+        )
+        for c in COLS_PRECIO + ["descuento_pct"]:
+            if c in p.columns:
+                p[c] = pd.to_numeric(p[c], errors="coerce", downcast="float")
+        partes.append(p)
+
+    if not partes:
+        return pd.DataFrame(columns=COLS_VISTA)
+
+    df = pd.concat(partes, ignore_index=True)
+    # Se tipa DESPUÉS de concatenar: unir categóricas con categorías distintas
+    # (cada mes tiene su propio conjunto de productos) las degrada a texto.
+    for c in COMO_CATEGORIA:
         if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-    df["tiene_descuento"] = df["tiene_descuento"] == "True"
+            df[c] = df[c].astype("category")
+    df["tiene_descuento"] = df["tiene_descuento"].astype(str) == "True"
 
     # VTEX publica Price = 0 cuando el producto está en catálogo pero sin precio
-    # (casi siempre por falta de stock): 0,9% del histórico, y 2.161 de esas
-    # 2.175 filas son de Plaza Vea. Cero no es un precio, así que lo pasamos a
-    # nulo: si no, el KPI de precio mínimo muestra "S/ 0.00" y los promedios y
+    # (casi siempre por falta de stock). Cero no es un precio, así que lo pasamos
+    # a nulo: si no, el KPI de precio mínimo muestra "S/ 0.00" y los promedios y
     # boxplots quedan arrastrados hacia abajo por productos que no se venden.
     for c in COLS_PRECIO:
         if c in df.columns:
             df.loc[df[c] <= 0, c] = float("nan")
     return df
+
+
+def generar_csv(desde, hasta, filtros) -> bytes:
+    """Arma el CSV de descarga con TODAS las columnas, mes por mes.
+
+    Dos cosas importantes de este diseño, las dos por memoria:
+
+    1. Se procesa una partición mensual a la vez y se descarta antes de leer la
+       siguiente, así el pico no depende del largo del rango: exportar el
+       histórico completo cuesta lo mismo que exportar un mes.
+    2. No se llama al renderizar la página. st.download_button necesita los
+       bytes en el momento de dibujarse, así que tenerlo siempre a mano obligaba
+       a construir el histórico entero como CSV en CADA carga: 832 MB de los
+       1.147 MB de pico que hacían que Streamlit Cloud matara la app. Ahora se
+       genera recién cuando el usuario lo pide.
+    """
+    super_sel, cat_sel, familia_sel, solo_descuento = filtros
+    trozos = []
+    primera = True
+    for mes in pd.period_range(desde, hasta, freq="M").strftime("%Y-%m"):
+        ruta = DATA_DIR / f"historico_{mes}.csv"
+        if not ruta.exists():
+            continue
+        parte = pd.read_csv(ruta, dtype=str, encoding="utf-8-sig")
+        fechas = pd.to_datetime(parte["fecha_extraccion"]).dt.date
+        mask = (
+            (fechas >= desde) & (fechas <= hasta)
+            & parte["supermercado"].isin(super_sel)
+            & parte["categoria"].isin(cat_sel)
+        )
+        if familia_sel is not None:
+            mask &= parte["familia"].isin(familia_sel)
+        if solo_descuento:
+            mask &= parte["tiene_descuento"] == "True"
+        trozo = parte[mask]
+        if not trozo.empty:
+            trozos.append(normalizar_df(trozo)
+                          .to_csv(index=False, header=primera)
+                          .encode("utf-8"))
+            primera = False
+        del parte, trozo
+    # El BOM va una sola vez al principio: Excel en Windows lo necesita para
+    # mostrar bien las ñ y los acentos.
+    return b"\xef\xbb\xbf" + b"".join(trozos)
 
 
 def soles(v) -> str:
@@ -136,7 +219,8 @@ filas_del_dia  = dff[dff["fecha_extraccion"].dt.date == fecha_snapshot]
 # reaparecen dentro de 'res-y-otras-carnes'. Nos quedamos con su última lectura.
 snapshot_actual = (
     filas_del_dia.sort_values("fecha_extraccion")
-                 .groupby(["supermercado", "producto_id"], as_index=False)
+                 .groupby(["supermercado", "producto_id"], as_index=False,
+                          observed=True)
                  .tail(1)
 )
 
@@ -253,7 +337,8 @@ with tab4:
 
     productos_opciones = (
         snapshot_actual.assign(
-            label=lambda d: d["supermercado"] + " · " + d["nombre"]
+            label=lambda d: d["supermercado"].astype(str) + " · "
+                            + d["nombre"].astype(str)
         )
         .set_index(["supermercado", "producto_id"])["label"]
         .to_dict()
@@ -298,7 +383,8 @@ with tab4:
         # producto se parte en dos lineas de distinto color. La clave por id
         # garantiza una linea continua por producto.
         evol["serie_id"] = (
-            evol["supermercado"] + "|" + evol["producto_id"].astype(str)
+            evol["supermercado"].astype(str) + "|"
+            + evol["producto_id"].astype(str)
         )
         # Etiqueta visible = "super · nombre ACTUAL" (el nombre de la fecha mas
         # reciente de cada producto), para que la leyenda muestre el nombre vigente.
@@ -308,7 +394,8 @@ with tab4:
             .last()
         )
         evol["serie"] = (
-            evol["supermercado"] + " · " + evol["serie_id"].map(nombre_actual)
+            evol["supermercado"].astype(str) + " · "
+            + evol["serie_id"].map(nombre_actual).astype(str)
         )
 
         # Igual que en Distribución: al gráfico solo le pasamos lo que dibuja o
@@ -479,35 +566,72 @@ with tab5:
     fechas_extraccion = dff["fecha_extraccion"].dt.date
     fecha_min, fecha_max = fechas_extraccion.min(), fechas_extraccion.max()
 
+    # Por defecto, los últimos 30 días y no todo el histórico: con 120 días el
+    # archivo pasa los 130 MB y armarlo se come más memoria de la que Streamlit
+    # Cloud le da a la app. El usuario puede ampliar el rango si lo necesita.
+    por_defecto_ini = max(fecha_min, fecha_max - pd.Timedelta(days=29).to_pytimedelta())
+
     col_a, col_b = st.columns(2)
-    fecha_ini = col_a.date_input("Desde", value=fecha_min, min_value=fecha_min, max_value=fecha_max)
-    fecha_fin = col_b.date_input("Hasta", value=fecha_max, min_value=fecha_min, max_value=fecha_max)
+    fecha_ini = col_a.date_input("Desde", value=por_defecto_ini,
+                                 min_value=fecha_min, max_value=fecha_max)
+    fecha_fin = col_b.date_input("Hasta", value=fecha_max,
+                                 min_value=fecha_min, max_value=fecha_max)
 
     export_df = dff[(fechas_extraccion >= fecha_ini) & (fechas_extraccion <= fecha_fin)]
-    st.caption(f"{len(export_df):,} filas seleccionadas (del {fecha_ini} al {fecha_fin}).")
+    st.caption(f"{len(export_df):,} filas seleccionadas (del {fecha_ini} al {fecha_fin}). "
+               "El archivo trae todas las columnas del histórico, también las que "
+               "el dashboard no muestra.")
 
     nombre_archivo = (
         f"historico_{fecha_ini}.csv" if fecha_ini == fecha_fin
         else f"historico_{fecha_ini}_a_{fecha_fin}.csv"
     )
 
-    # Normaliza solo lo que se descarga (no afecta filtros ni graficos del dashboard):
-    # nombres de columna en espanol, slugs legibles, Si/No, limpieza de NBSP/comillas.
-    # utf-8-sig anade el BOM para que Excel en Windows muestre la N y los acentos
-    # correctamente, sin simbolos raros.
-    if export_df.empty:
-        datos_csv = b""
-    else:
-        export_norm = normalizar_df(export_df)
-        datos_csv = export_norm.to_csv(index=False).encode("utf-8-sig")
+    # El archivo se arma en dos pasos a propósito. st.download_button exige los
+    # bytes en el momento de dibujarse, así que dejarlo siempre listo obligaba a
+    # construir el CSV completo en cada carga de página — 832 MB de pico, por
+    # encima de lo que Streamlit Cloud le da a la app. Primero se pide, después
+    # se descarga.
+    listo = st.session_state.get("csv_listo")
+    pedido = (str(fecha_ini), str(fecha_fin), tuple(sorted(super_sel)),
+              tuple(sorted(cat_sel)),
+              tuple(sorted(familia_sel)) if familia_sel is not None else None,
+              solo_descuento)
 
-    st.download_button(
-        "⬇️ Descargar CSV",
-        data=datos_csv,
-        file_name=nombre_archivo,
-        mime="text/csv",
-        disabled=export_df.empty,
-    )
+    # Armar el CSV cuesta del orden de 4 veces su tamaño final en memoria, así
+    # que por encima de este tope la app se queda sin RAM y Streamlit la reinicia.
+    # Preferimos decirlo antes que morir a mitad de la descarga.
+    TOPE_FILAS = 150_000
+    if len(export_df) > TOPE_FILAS:
+        st.warning(
+            f"La selección tiene {len(export_df):,} filas y el tope de una descarga "
+            f"es {TOPE_FILAS:,}: más que eso no entra en la memoria que tiene la app. "
+            "Acortá el rango de fechas, o filtrá por supermercado o familia en el "
+            "panel izquierdo."
+        )
+
+    if st.button("Generar el archivo",
+                 disabled=export_df.empty or len(export_df) > TOPE_FILAS,
+                 help="Se arma con los filtros del panel izquierdo y el rango de fechas elegido"):
+        with st.spinner(f"Armando el CSV de {len(export_df):,} filas…"):
+            # Normaliza solo lo que se descarga (no afecta filtros ni graficos del
+            # dashboard): nombres de columna en espanol, slugs legibles, Si/No,
+            # limpieza de NBSP/comillas. utf-8-sig anade el BOM para que Excel en
+            # Windows muestre la N y los acentos correctamente.
+            st.session_state["csv_listo"] = (pedido, generar_csv(
+                fecha_ini, fecha_fin,
+                (super_sel, cat_sel, familia_sel, solo_descuento)))
+        listo = st.session_state["csv_listo"]
+
+    if listo and listo[0] == pedido:
+        st.download_button(
+            "⬇️ Descargar CSV",
+            data=listo[1],
+            file_name=nombre_archivo,
+            mime="text/csv",
+        )
+    elif listo:
+        st.caption("Cambiaste los filtros o las fechas: volvé a generar el archivo.")
 
 
 # ── Footer ──────────────────────────────────────────────────────────────────

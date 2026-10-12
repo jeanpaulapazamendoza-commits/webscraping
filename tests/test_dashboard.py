@@ -101,6 +101,41 @@ def test_precio_minimo_no_es_cero():
     assert float(at.metric[2].value) > 0
 
 
+def test_la_descarga_no_se_construye_al_cargar():
+    """Lo que tumbaba la app en Streamlit Cloud.
+
+    st.download_button exige los bytes en el momento de dibujarse, así que
+    tenerlo siempre listo obligaba a armar el histórico completo como CSV en
+    CADA carga de página: 832 MB de los 1.147 MB de pico, sobre los 690 MB que
+    Streamlit Community Cloud le da a la app. Ahora primero se pide y después
+    se descarga.
+    """
+    at = _base()
+    assert not at.get("download_button"), (
+        "no debería haber ningún download_button antes de pedir el archivo"
+    )
+    assert any("Generar" in b.label for b in at.button), (
+        "debería ofrecer un botón para generar el archivo"
+    )
+
+
+def test_generar_el_archivo_habilita_la_descarga():
+    at = _correr(lambda a: None)
+    boton = next(i for i, b in enumerate(at.button) if "Generar" in b.label)
+    at.button[boton].click().run()
+    assert not at.exception
+    assert at.get("download_button"), "tras generar debería aparecer la descarga"
+
+
+def test_el_rango_por_defecto_no_es_todo_el_historico():
+    """Con 120 días el archivo pasa los 130 MB y armarlo no entra en memoria."""
+    at = _base()
+    desde, hasta = at.date_input[0].value, at.date_input[1].value
+    assert (hasta - desde).days <= 30, (
+        f"el rango por defecto es de {(hasta - desde).days} días, demasiado"
+    )
+
+
 if __name__ == "__main__":
     fallos = 0
     for nombre, fn in sorted(globals().items()):
