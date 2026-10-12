@@ -1,5 +1,8 @@
 # Precios Supermercados Perú
 
+[![Scraping diario](https://github.com/jeanpaulapazamendoza-commits/webscraping/actions/workflows/scrape.yml/badge.svg)](https://github.com/jeanpaulapazamendoza-commits/webscraping/actions/workflows/scrape.yml)
+[![Estado de los datos](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjeanpaulapazamendoza-commits%2Fwebscraping%2Fmain%2Fdata%2F_badge.json)](data/_salud.json)
+
 Pipeline automatizado que scrapea los precios de carnes y frutas/verduras en 4
 supermercados peruanos (Tottus, Wong, Metro, Plaza Vea) —unos 4.000 productos por día
 repartidos en 223 categorías—, todos los días, y los muestra en un dashboard web
@@ -12,8 +15,8 @@ un Google Sheet en la nube.
   de cada plataforma: Tottus vía `__NEXT_DATA__` de Next.js, Wong/Metro/Plaza Vea vía
   la API REST de VTEX)
 - **Schedule**: GitHub Actions (cron diario + disparo manual)
-- **Storage**: `data/historico_YYYY-MM.csv`, versionado en git y particionado por mes
-  (vía `historico_io.py`), más réplica completa en Google Sheets
+- **Storage**: `data/historico_YYYY-MM.parquet`, versionado en git y particionado por
+  mes (vía `historico_io.py`), más réplica completa en Google Sheets
 - **Dashboard**: Streamlit, hosteado gratis en Streamlit Community Cloud
 
 ## Estructura del repo
@@ -31,13 +34,16 @@ un Google Sheet en la nube.
 ├── tottus_extractor.py          # Next.js __NEXT_DATA__
 ├── vtex_extractor.py            # Wong, Metro y Plaza Vea (API VTEX)
 ├── historico_io.py              # Carga/escritura del histórico particionado por mes
+├── salud.py                     # Estado de la captura: atraso, huecos, badge
 ├── scrape_all.py                # Orquestador: corre todos los targets y exporta
 ├── export_sheets.py             # Exporta Histórico/Snapshot/Resumen a Google Sheets
 ├── normalizar.py                # Limpieza y normalización compartida
 ├── build_excel.py               # (Opcional, manual) XLSX local para Power BI
 ├── app.py                       # Dashboard Streamlit
 ├── data/
-│   ├── historico_YYYY-MM.csv    # Append-only, una partición por mes
+│   ├── historico_YYYY-MM.parquet # Una partición por mes
+│   ├── _pendiente.csv            # Lo que la corrida en curso no consolidó (gitignored)
+│   ├── _salud.json               # Estado de la captura; _badge.json para el badge
 │   └── snapshots/                # Backup JSON por corrida (gitignored)
 └── requirements.txt
 ```
@@ -87,6 +93,62 @@ Como los nodos de Tottus se superponen un poco, `scrape_all.py` descarta por
 lock ordena los nodos finos primero para que la categoría que quede sea la más
 específica. Contra la lista a mano anterior: 4.002 productos por día en vez de
 3.647 (+355, ninguno perdido) y 223 categorías distintas en vez de 185.
+
+## Dónde vive el histórico
+
+Parquet, una partición por mes. Medido sobre los 446.220 registros que había al
+migrar: **138 MB de CSV son 5,5 MB de Parquet**, el 4%. Lo que más pesaba eran
+las columnas de baja cardinalidad —supermercado, categoría, nombre, marca: las
+mismas pocas cadenas repetidas cientos de miles de veces— y Parquet guarda cada
+valor una vez y un entero por fila.
+
+Como el histórico se versiona en git, lo que importa no es solo el tamaño del
+árbol sino cuánto crece el repo. También medido, con 20 días de commits: el CSV
+que crece por append deja **216 KB por día** en `.git`, el Parquet reescrito
+entero **170 KB**. Parquet gana en los dos lados.
+
+Se guarda todo como texto, igual que cuando era CSV. Tipar las columnas no
+ahorra nada (5,5 MB en los dos casos: el diccionario de Parquet comprime "6.50"
+tan bien como un float) y en cambio obligaría a revisar cada consumidor, que hoy
+parsea desde texto y distingue el vacío —"no se midió"— del cero.
+
+El precio de Parquet es que no se puede ampliar: agregar una fila es reescribir
+el archivo. Como `append_historico()` se llama una vez por target, 74 veces por
+corrida, reescribir la partición costaba 56 segundos y subiendo. Así que la
+corrida agrega a `data/_pendiente.csv`, donde agregar al final sale gratis, y al
+terminar `consolidar()` lo pliega en las particiones de una sola vez. El
+pendiente también es la red de seguridad: si la corrida se cae, queda en disco y
+la próxima lo recupera.
+
+```bash
+python tools/migrar_a_parquet.py --aplicar   # la conversión, ya corrida
+```
+
+## Estado de la captura
+
+```bash
+python salud.py          # qué trajo la última corrida y qué días faltan
+```
+
+Escribe `data/_salud.json` (atraso, días con dato, huecos, productos por cadena)
+y `data/_badge.json`, que es lo que dibuja el badge de arriba. Existe porque un
+día ausente no se distinguía de uno normal: el cron podía dejar de correr y el
+histórico seguía creciendo sin que nada fallara.
+
+La distinción importante es entre **problema** y **aviso**. Problema es lo que se
+le puede reclamar a la corrida y todavía se puede arreglar —el dato está viejo,
+una cadena no trajo nada, el total se cayó más del 30% contra el día anterior— y
+hace que `scrape_all.py` **salga con error**. Aviso es lo que hay que ver pero ya
+no se puede arreglar: los días que faltan. Los precios de un día perdido no están
+en ningún lado, así que marcarlos en rojo dejaría el semáforo trabado una semana
+sin que nadie pueda hacer nada.
+
+Y una limitación que conviene tener clara: `_badge.json` lo escribe la corrida,
+así que **si la corrida no pasa, nadie lo reescribe y se queda en verde**. El
+badge que detecta "dejó de correr" es el primero, el de GitHub Actions, porque lo
+calcula GitHub. Para que sirva, la corrida tiene que fallar cuando el resultado
+es malo, y por eso sale con error. El dato se guarda y se commitea igual: el
+código de salida dictamina, no decide si se escribe.
 
 ## La web (Vercel)
 

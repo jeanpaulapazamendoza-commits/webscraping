@@ -41,17 +41,18 @@ def _construir(filas):
     """Escribe un histórico de juguete y devuelve los cuatro JSON."""
     import construir_json
 
+    from historico_io import append_historico, consolidar
+
     tmp = Path(tempfile.mkdtemp())
     (tmp / "data").mkdir()
-    with (tmp / "data" / "historico_2026-10.csv").open("w", encoding="utf-8",
-                                                      newline="") as f:
-        w = csv.DictWriter(f, fieldnames=CAMPOS_HISTORICO, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(filas)
-
     previo = os.getcwd()
     try:
         os.chdir(tmp)
+        # Por el camino real de escritura, no escribiendo el archivo a mano:
+        # así la prueba también cubre que el pendiente se pliegue bien en la
+        # partición, que es de donde construir_json lee.
+        append_historico(filas)
+        consolidar()
         construir_json.construir(Path("web/datos"))
         return {p.stem: json.loads(p.read_text(encoding="utf-8"))
                 for p in (tmp / "web" / "datos").glob("*.json")}

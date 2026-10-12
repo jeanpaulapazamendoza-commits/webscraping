@@ -24,18 +24,20 @@ Uso:
 """
 
 import argparse
-import csv
 import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
-from historico_io import CAMPOS_HISTORICO, DATA_DIR  # noqa: E402
+import pandas as pd  # noqa: E402
+
+from historico_io import (CAMPOS_HISTORICO, escribir_particion,  # noqa: E402
+                          leer, listar_particiones)
 
 
 def _num(valor):
-    """El CSV guarda todo como texto; devuelve float o None."""
+    """El histórico guarda todo como texto; devuelve float o None."""
     if valor is None or valor == "":
         return None
     try:
@@ -70,7 +72,12 @@ def recalcular(fila: dict) -> dict | None:
 
 
 def procesar(ruta: Path, aplicar: bool) -> dict:
-    filas = list(csv.DictReader(ruta.open(encoding="utf-8-sig", newline="")))
+    # El histórico pasó a Parquet, así que la partición se lee y se escribe por
+    # historico_io en vez de con csv.DictReader. La lógica de abajo sigue
+    # trabajando con filas como diccionarios de texto, que es como las leía
+    # antes; fillna("") reproduce lo que daba read_csv sobre un campo vacío.
+    filas = leer(ruta).reindex(columns=CAMPOS_HISTORICO).fillna("") \
+                      .astype(str).to_dict("records")
     cambios = 0
     deltas = []
     regular_vacio = 0
@@ -88,12 +95,7 @@ def procesar(ruta: Path, aplicar: bool) -> dict:
         cambios += 1
 
     if aplicar and cambios:
-        tmp = ruta.with_name(ruta.name + ".tmp")
-        with tmp.open("w", encoding="utf-8", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=CAMPOS_HISTORICO, extrasaction="ignore")
-            w.writeheader()
-            w.writerows(filas)
-        tmp.replace(ruta)
+        escribir_particion(pd.DataFrame(filas), ruta)
 
     return {"filas": len(filas), "cambios": cambios, "deltas": deltas,
             "regular_vacio": regular_vacio}
@@ -108,7 +110,7 @@ def main():
     total = tocadas = vacias = 0
     todos = []
     print(f"{'Partición':24s}{'Filas':>9}{'Tocadas':>9}{'Cambia el %':>13}")
-    for ruta in sorted(DATA_DIR.glob("historico_*.csv")):
+    for ruta in listar_particiones():
         r = procesar(ruta, args.aplicar)
         total += r["filas"]
         tocadas += r["cambios"]

@@ -8,3 +8,10 @@ service_account*.json
 oauth_client.json
 authorized_user.json
 .streamlit/secrets.toml
+
+# El pendiente de la corrida en curso: archivo de trabajo, no dato. Lo pliega
+# consolidar() en la particion del mes al terminar.
+data/_pendiente.csv
+# Los temporales de escribir_particion(); si quedo uno, la corrida se cayo
+# justo ahi y la particion buena es la de al lado.
+data/*.tmp

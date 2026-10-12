@@ -14,6 +14,11 @@
 requests>=2.31.0,<3
 pyyaml>=6.0,<7
 pandas>=2.3.0,<3
+# El historico esta en Parquet y lo lee/escribe pyarrow. Streamlit ya lo
+# arrastra como dependencia, pero aca se declara porque lo usamos directo: si
+# algun dia Streamlit deja de necesitarlo, el pipeline no se tiene que enterar
+# por un ImportError en produccion.
+pyarrow>=16.0,<25
 streamlit>=1.57.0,<2
 openpyxl>=3.1.0,<4
 altair>=5.0.0,<7

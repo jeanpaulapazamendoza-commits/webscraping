@@ -22,7 +22,7 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 
-from historico_io import DATA_DIR
+from historico_io import leer, listar_fuentes
 from normalizar import ESQUEMA_SALIDA, normalizar_df
 
 st.set_page_config(
@@ -70,18 +70,20 @@ def cargar_datos() -> pd.DataFrame:
     convertía, así que durante el arranque coexistían dos copias del histórico
     completo: 573 MB del crudo más 396 MB del convertido. Streamlit Community
     Cloud arranca con 690 MB de RAM, así que la app se moría al bootear. Leyendo
-    solo las columnas que el dashboard usa, y con los tipos correctos desde el
-    read_csv, el mismo histórico ocupa 109 MB.
+    solo las columnas que el dashboard usa, el mismo histórico ocupa 109 MB.
+
+    Con el histórico en Parquet eso sale más barato todavía: es un formato
+    columnar, así que pedir 16 de las 25 columnas no lee las otras 9 del disco.
+    En CSV había que recorrer cada línea entera igual y descartar los campos de
+    más al parsear.
     """
     partes = []
-    for ruta in sorted(DATA_DIR.glob("historico_*.csv")):
-        p = pd.read_csv(
-            ruta,
-            usecols=lambda c: c in COLS_VISTA,
-            dtype={"nombre": "string", "url": "string"},
-            parse_dates=["fecha_extraccion"],
-            encoding="utf-8-sig",
-        )
+    for ruta in listar_fuentes():
+        p = leer(ruta, COLS_VISTA)
+        p["fecha_extraccion"] = pd.to_datetime(p["fecha_extraccion"],
+                                               errors="coerce", format="mixed")
+        for c in ("nombre", "url"):
+            p[c] = p[c].astype("string")
         for c in COLS_PRECIO + ["descuento_pct"]:
             if c in p.columns:
                 # float32 explícito en vez de downcast=, que está deprecado:
@@ -122,7 +124,7 @@ def generar_csv(desde, hasta, filtros) -> bytes:
 
     Dos cosas importantes de este diseño, las dos por memoria:
 
-    1. Se procesa una partición mensual a la vez y se descarta antes de leer la
+    1. Se procesa una fuente a la vez y se descarta antes de leer la
        siguiente, así el pico no depende del largo del rango: exportar el
        histórico completo cuesta lo mismo que exportar un mes.
     2. No se llama al renderizar la página. st.download_button necesita los
@@ -134,12 +136,13 @@ def generar_csv(desde, hasta, filtros) -> bytes:
     super_sel, cat_sel, familia_sel, solo_descuento = filtros
     trozos = []
     primera = True
-    for mes in pd.period_range(desde, hasta, freq="M").strftime("%Y-%m"):
-        ruta = DATA_DIR / f"historico_{mes}.csv"
-        if not ruta.exists():
-            continue
-        parte = pd.read_csv(ruta, dtype=str, encoding="utf-8-sig")
-        fechas = pd.to_datetime(parte["fecha_extraccion"]).dt.date
+    # Se recorren las fuentes y no un rango de meses: así entra también el
+    # pendiente de la corrida en curso, que todavía no es una partición y de
+    # otro modo dejaría el día de hoy afuera de la descarga.
+    for ruta in listar_fuentes():
+        parte = leer(ruta)
+        fechas = pd.to_datetime(parte["fecha_extraccion"],
+                                errors="coerce", format="mixed").dt.date
         mask = (
             (fechas >= desde) & (fechas <= hasta)
             & parte["supermercado"].isin(super_sel)
@@ -159,7 +162,10 @@ def generar_csv(desde, hasta, filtros) -> bytes:
             )
             trozos.append(norm.to_csv(index=False, header=primera).encode("utf-8"))
             primera = False
-        del parte, trozo, norm
+            del norm
+        # Se liberan acá y no al final del bucle: si el filtro no dejó nada,
+        # `norm` no existe y un `del` sobre las tres reventaba con NameError.
+        del parte, trozo
     # El BOM va una sola vez al principio: Excel en Windows lo necesita para
     # mostrar bien las ñ y los acentos.
     return b"\xef\xbb\xbf" + b"".join(trozos)
@@ -173,7 +179,8 @@ def soles(v) -> str:
 df = cargar_datos()
 
 if df.empty:
-    st.error("No se encontró histórico en `data/historico_*.csv`. Ejecutá el scraper primero.")
+    st.error("No se encontró histórico en `data/historico_*.parquet`. "
+             "Ejecutá el scraper primero.")
     st.stop()
 
 

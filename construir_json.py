@@ -30,6 +30,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import salud
 from historico_io import cargar_historico
 
 SALIDA = Path("web") / "datos"
@@ -162,27 +163,12 @@ def construir_resumen(df: pd.DataFrame) -> list:
 def construir_salud(df: pd.DataFrame, generado: str) -> dict:
     """De cuándo es el dato y qué trajo la última corrida.
 
-    Existe porque hoy no hay forma de saber que falta un día sin mirarlo a ojo:
-    un día ausente no se distingue de uno normal.
+    Lo calcula salud.py, que es el mismo módulo que usa la corrida para decidir
+    si salir con error. Un solo cálculo: si acá se midiera distinto, la web
+    podría mostrarse al día mientras el badge está en rojo.
     """
-    ultimo = df["dia"].max()
-    hoy = df[df["dia"] == ultimo]
-    por_cadena = (hoy.groupby("supermercado", observed=True)
-                    .agg(productos=("clave", "nunique"),
-                         categorias=("categoria", "nunique"))
-                    .to_dict("index"))
-    dias = sorted(df["dia"].unique())
-    return {
-        "generado": generado,
-        "ultimo_dia": ultimo,
-        "hora_de_la_foto": hoy["ts"].max().strftime("%H:%M"),
-        "dias_con_dato": len(dias),
-        "primer_dia": dias[0],
-        "filas": int(len(df)),
-        "productos": int(df["clave"].nunique()),
-        "por_cadena": {k: {kk: int(vv) for kk, vv in v.items()}
-                       for k, v in por_cadena.items()},
-    }
+    est = salud.estado(df, generado)
+    return dict(est, avisos=salud.avisos(est))
 
 
 def escribir(destino: Path, nombre: str, datos) -> int:

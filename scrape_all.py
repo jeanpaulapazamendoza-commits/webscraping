@@ -14,7 +14,8 @@ Uso:
     python scrape_all.py --excel               # además generar el XLSX local
 
 Output:
-    - data/historico_YYYY-MM.csv (append-only, partición mensual, vía historico_io.py)
+    - data/historico_YYYY-MM.parquet (partición mensual, vía historico_io.py)
+    - data/_salud.json           (estado de la captura) y data/_badge.json
     - data/snapshots/*.json      (backup individual por categoría)
     - data/_run_log.txt          (log de la última corrida con éxitos/fallos)
     - Google Sheet (Histórico/Snapshot Actual/Resumen Competitivo), salvo --no-sheets
@@ -38,7 +39,8 @@ import yaml
 # Importar los extractores (deben estar en la misma carpeta)
 from tottus_extractor import extraer as extraer_tottus
 from vtex_extractor import extraer as extraer_vtex
-from historico_io import append_historico
+import salud
+from historico_io import append_historico, consolidar
 
 EXTRACTORES = {
     "tottus":   extraer_tottus,
@@ -182,7 +184,7 @@ def main():
         print("--- DRY RUN — no se ejecuta nada ---\n")
         for i, t in enumerate(targets, 1):
             print(f"  [{i:2}/{len(targets)}] {t['supermercado']:9s} {t['familia']:9s} {t['slug']}")
-        return
+        return 0
 
     DATA_DIR.mkdir(exist_ok=True)
     log_lines = [f"=== Corrida {ts_pretty} ===", f"Targets: {len(targets)}\n"]
@@ -197,6 +199,17 @@ def main():
     # que gane sea la más específica.
     vistos = set()
     repetidos = 0
+
+    # Lo primero: recoger lo que dejó una corrida que se cayó. El pendiente es
+    # append-only y sobrevive al proceso, así que esas filas están a salvo pero
+    # todavía no son partición.
+    rescatadas = consolidar()
+    if rescatadas:
+        aviso = ("  Se consolidó el pendiente de una corrida anterior: "
+                 + ", ".join(p.name for p in rescatadas))
+        print(aviso)
+        log_lines.append(aviso)
+
     t_inicio = time.time()
 
     for i, t in enumerate(targets, 1):
@@ -232,6 +245,10 @@ def main():
     elapsed = time.time() - t_inicio
     total_productos = sum(n for _, n in exitos)
 
+    # Recién acá el pendiente pasa a las particiones: una sola reescritura por
+    # mes en vez de una por target.
+    particiones = consolidar()
+
     resumen = [
         "",
         f"╔{'═'*68}╗",
@@ -258,7 +275,8 @@ def main():
     with open(LOG_FILE, "w", encoding="utf-8") as f:
         f.write("\n".join(log_lines) + "\n")
 
-    print(f"\n  Histórico:  {DATA_DIR}/historico_*.csv")
+    print(f"\n  Histórico:  " + (", ".join(p.name for p in particiones)
+                                 or f"{DATA_DIR}/historico_*.parquet"))
     print(f"  Snapshots:  {SNAPSHOTS_DIR}/")
     print(f"  Log:        {LOG_FILE}")
 
@@ -303,6 +321,55 @@ def main():
         except Exception as e:
             print(f"  ⚠ No se pudo generar el XLSX: {e}")
 
+    # ── Semáforo ──────────────────────────────────────────────────────────────
+    # Va al final y después de haber escrito todo: el código de salida nunca
+    # decide si el dato se guarda. Primero se guarda, después se dictamina.
+    return publicar_salud(targets, exitos, fallos, log_lines)
+
+
+def publicar_salud(targets, exitos, fallos, log_lines) -> int:
+    """Escribe el estado de la captura y devuelve el código de salida.
+
+    Salir con error es la mitad del semáforo. La otra mitad, data/_badge.json,
+    la escribe esta misma función, pero tiene un límite que conviene no
+    olvidar: si la corrida no pasa, nadie lo reescribe y se queda diciendo que
+    todo está bien. El badge que detecta "dejó de correr" es el de GitHub
+    Actions, porque lo calcula GitHub; para que sirva, la corrida tiene que
+    fallar cuando el resultado es malo, y eso es lo que pasa acá.
+    """
+    print(f"\n{'─'*70}")
+    print("Estado de la captura")
+    print("─" * 70)
+    est, problemas, avisos = salud.revisar()
+
+    # Lo que solo sabe esta corrida, y que el histórico no delata: que los
+    # targets fallaron. Un día entero de fallos no mueve el último día del
+    # histórico, así que sin esto pasaría en verde.
+    if not exitos:
+        problemas.append(f"ningún target trajo nada ({len(fallos)} fallos)")
+    elif len(fallos) > len(targets) * 0.2:
+        problemas.append(f"{len(fallos)} de {len(targets)} targets fallaron")
+
+    for ruta in salud.publicar(est, problemas, avisos):
+        print(f"  {ruta}")
+    linea = (f"  último día {est['ultimo_dia']} · "
+             f"{est.get('productos_ultimo_dia')} productos · "
+             f"{est['dias_con_dato']} días de histórico")
+    print(linea)
+    log_lines.append(linea)
+    for etiqueta, lista in (("⚠ problema", problemas), ("· aviso", avisos)):
+        for texto in lista:
+            print(f"  {etiqueta}: {texto}")
+            log_lines.append(f"  {etiqueta}: {texto}")
+
+    with open(LOG_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(log_lines) + "\n")
+
+    if problemas:
+        print("\n  La corrida sale con error para que el badge lo refleje. "
+              "El dato ya quedó guardado.")
+    return 1 if problemas else 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -158,10 +158,9 @@ def test_el_filtro_de_stock_sobre_datos_controlados():
     Se usa un fixture porque el histórico real todavía no tiene la columna
     poblada: recién se captura desde la primera corrida con el extractor nuevo.
     """
-    import csv
     import tempfile
 
-    from historico_io import CAMPOS_HISTORICO
+    from historico_io import CAMPOS_HISTORICO, append_historico, consolidar
 
     base = dict.fromkeys(CAMPOS_HISTORICO, "")
     base.update(supermercado="wong", categoria="pollo", familia="pollo",
@@ -178,16 +177,13 @@ def test_el_filtro_de_stock_sobre_datos_controlados():
 
     tmp = tempfile.mkdtemp()
     os.makedirs(os.path.join(tmp, "data"))
-    with open(os.path.join(tmp, "data", "historico_2026-10.csv"), "w",
-              encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=CAMPOS_HISTORICO, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(filas)
 
     app = os.path.join(RAIZ, "app.py")
     previo = os.getcwd()
     try:
         os.chdir(tmp)
+        append_historico(filas)
+        consolidar()
         # cargar_datos() está cacheada y las otras pruebas ya la llenaron con el
         # histórico real; sin limpiar, el fixture no se llega a leer.
         st.cache_data.clear()

@@ -1,5 +1,5 @@
 """
-Genera data/historico_normalizado.xlsx a partir de data/historico.csv.
+Genera data/historico_normalizado.xlsx a partir del histórico completo.
 
 El XLSX tiene 3 hojas, estilizadas para presentación al equipo de Plaza Vea:
   1. Datos Normalizados     — el dataset completo limpio, listo para Power BI
@@ -7,8 +7,8 @@ El XLSX tiene 3 hojas, estilizadas para presentación al equipo de Plaza Vea:
   3. Diccionario de Campos  — documentación de cada columna
 
 Uso:
-    python build_excel.py                         # lee data/historico.csv
-    python build_excel.py --input otra/ruta.csv   # input custom
+    python build_excel.py                         # lee data/historico_*.parquet
+    python build_excel.py --input otra/ruta.csv   # un archivo suelto
     python build_excel.py --output otro.xlsx      # output custom
 
 El script ES llamado automáticamente al final de scrape_all.py, pero también
@@ -25,6 +25,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+from historico_io import cargar_historico, leer
 from normalizar import normalizar_df, construir_resumen
 
 
@@ -222,22 +223,33 @@ def construir_workbook(df_norm: pd.DataFrame, resumen: pd.DataFrame,
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input",  default="data/historico.csv",
-                        help="CSV de entrada (default: data/historico.csv)")
+    parser.add_argument("--input", default=None,
+                        help="Un archivo suelto. Por defecto lee el histórico "
+                             "completo con historico_io.")
     parser.add_argument("--output", default="data/historico_normalizado.xlsx",
                         help="XLSX de salida (default: data/historico_normalizado.xlsx)")
     args = parser.parse_args()
 
-    in_path  = Path(args.input)
     out_path = Path(args.output)
 
-    if not in_path.exists():
-        print(f"✗ No se encontró {in_path}")
-        print("  Asegurate de haber corrido scrape_all.py al menos una vez.")
-        sys.exit(1)
-
-    print(f"📖 Leyendo {in_path}...")
-    df_raw = pd.read_csv(in_path, dtype=str, encoding="utf-8-sig")
+    # Antes el default era "data/historico.csv", que no existe desde que el
+    # histórico se particionó por mes: el script fallaba siempre, y como solo
+    # se corre a mano con --excel nadie lo notó. Ahora el default es el
+    # histórico de verdad, el mismo que ven el dashboard y la web.
+    if args.input:
+        in_path = Path(args.input)
+        if not in_path.exists():
+            print(f"✗ No se encontró {in_path}")
+            sys.exit(1)
+        print(f"📖 Leyendo {in_path}...")
+        df_raw = leer(in_path)
+    else:
+        print("📖 Leyendo el histórico completo...")
+        df_raw = cargar_historico()
+        if df_raw.empty:
+            print("✗ No hay histórico en data/.")
+            print("  Asegurate de haber corrido scrape_all.py al menos una vez.")
+            sys.exit(1)
     print(f"   {len(df_raw):,} filas, {len(df_raw.columns)} columnas")
 
     print("🧹 Normalizando...")

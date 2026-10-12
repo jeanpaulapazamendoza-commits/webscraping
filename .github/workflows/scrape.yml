@@ -28,7 +28,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # continue-on-error a propósito: scrape_all.py sale con 1 cuando la
+      # captura no está sana, y si eso cortara el job acá, el dato que SÍ se
+      # capturó nunca se commitearía. Se guarda primero y se dictamina al
+      # final, en el paso "Fallar si la captura no está sana".
       - name: Run scrapers
+        id: scrape
+        continue-on-error: true
         env:
           GOOGLE_CREDS_JSON: ${{ secrets.GOOGLE_CREDS_JSON }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
@@ -36,17 +42,38 @@ jobs:
         run: python scrape_all.py
 
       - name: Commit & push histórico
+        if: always()
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/historico_*.csv web/datos
+          git add data/historico_*.parquet data/_salud.json data/_badge.json web/datos
           # Si no hay cambios, no hacer commit (no fallar)
           git diff --quiet --cached || git commit -m "data: snapshot $(date -u +%Y-%m-%d_%H:%M)"
           git push
 
       - name: Upload artifact (backup)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: snapshot-${{ github.run_id }}
           path: data/snapshots/
           retention-days: 90
+
+      - name: Anotar el estado en el resumen del job
+        if: always()
+        run: |
+          echo '### Estado de la captura' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat data/_salud.json >> "$GITHUB_STEP_SUMMARY" || echo 'no se escribió'
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # Esto es el semáforo. El badge de este workflow se pone en rojo cuando
+      # la captura no está sana Y cuando el cron deja de correr, porque lo
+      # calcula GitHub y no nosotros. data/_badge.json no puede hacer lo
+      # segundo: si la corrida no pasa, nadie lo reescribe.
+      - name: Fallar si la captura no está sana
+        if: steps.scrape.outcome == 'failure'
+        run: |
+          echo "Ver los problemas en data/_salud.json:"
+          cat data/_salud.json || true
+          exit 1
