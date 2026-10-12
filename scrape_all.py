@@ -12,6 +12,7 @@ Uso:
     python scrape_all.py --no-sheets           # no exportar a Google Sheets
     python scrape_all.py --no-json             # no regenerar el JSON del frontend
     python scrape_all.py --excel               # además generar el XLSX local
+    python scrape_all.py --si-falta            # no hacer nada si el día ya está
 
 Output:
     - data/historico_YYYY-MM.parquet (partición mensual, vía historico_io.py)
@@ -40,7 +41,7 @@ import yaml
 from tottus_extractor import extraer as extraer_tottus
 from vtex_extractor import extraer as extraer_vtex
 import salud
-from historico_io import append_historico, consolidar
+from historico_io import append_historico, consolidar, leer, listar_fuentes
 
 EXTRACTORES = {
     "tottus":   extraer_tottus,
@@ -193,6 +194,53 @@ def correr_con_reintentos(target, delay, intentos=INTENTOS_POR_TARGET):
             time.sleep(espera)
 
 
+def claves_del_dia(dia: str) -> set:
+    """Las claves de los productos que ya se capturaron ese día.
+
+    Con esto el deduplicado pasa a ser por día y no por corrida, y volver a
+    correr el mismo día se vuelve idempotente: lo que ya está no se escribe
+    otra vez, y lo que falta sí. Antes una segunda corrida duplicaba todo el
+    día, que es por lo que el histórico tiene filas repetidas.
+
+    Es lo que habilita los disparos de respaldo del cron: el segundo puede
+    correr tranquilo sabiendo que, si el primero ya trajo todo, no va a
+    duplicar nada, y si el primero trajo la mitad, va a completar la otra.
+    """
+    vistos = set()
+    columnas = ["supermercado", "producto_id", "url", "fecha_extraccion"]
+    for ruta in listar_fuentes():
+        # Parquet es columnar, así que pedir 4 de 25 columnas no lee el resto:
+        # recorrer el histórico entero para esto cuesta décimas de segundo.
+        df = leer(ruta, columnas)
+        del_dia = df[df["fecha_extraccion"].astype(str).str.startswith(dia)]
+        vistos.update(clave_producto(f) for f in del_dia.to_dict("records"))
+    return vistos
+
+
+def dia_ya_capturado(dia: str) -> str | None:
+    """Por qué no hace falta correr hoy, o None si hace falta.
+
+    "Ya hay datos de hoy" no alcanza: si la corrida anterior se cayó a mitad de
+    camino, hay datos de hoy y aun así falta la mitad. Así que se mira también
+    el estado que publicó: si tuvo problemas o targets fallidos, se vuelve a
+    correr, y el deduplicado por día se encarga de no repetir lo que ya está.
+    """
+    if not any(k[0] for k in claves_del_dia(dia)):
+        return None
+    estado = salud.ARCHIVO_ESTADO
+    if not estado.exists():
+        return f"ya hay datos del {dia}"
+    try:
+        previo = json.loads(estado.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return f"ya hay datos del {dia}"
+    corrida = previo.get("corrida") or {}
+    if previo.get("problemas") or corrida.get("fallidos"):
+        return None
+    return (f"ya hay datos del {dia} y la corrida que los trajo no dejó "
+            f"problemas")
+
+
 def sin_repetidos(productos: list[dict], vistos: set) -> list[dict]:
     """Los productos de este target que no aparecieron todavía en la corrida.
 
@@ -250,6 +298,9 @@ def main():
                         help="No regenerar los JSON de web/datos")
     parser.add_argument("--excel", action="store_true",
                         help="Además generar el XLSX local vía build_excel.py")
+    parser.add_argument("--si-falta", action="store_true",
+                        help="No hacer nada si el día ya se capturó bien. "
+                             "Para los disparos de respaldo del cron.")
     args = parser.parse_args()
 
     targets = cargar_targets()
@@ -275,6 +326,15 @@ def main():
         return 0
 
     DATA_DIR.mkdir(exist_ok=True)
+    hoy = datetime.now().strftime("%Y-%m-%d")
+
+    if args.si_falta:
+        motivo = dia_ya_capturado(hoy)
+        if motivo:
+            print(f"Nada que hacer: {motivo}.")
+            return 0
+        print("Falta capturar el día, se corre.\n")
+
     log_lines = [f"=== Corrida {ts_pretty} ===", f"Targets: {len(targets)}\n"]
 
     exitos = []
@@ -288,7 +348,14 @@ def main():
     # productos están en dos nodos a la vez. Nos quedamos con la primera
     # aparición, y el lock ordena los nodos finos primero para que la categoría
     # que gane sea la más específica.
-    vistos = set()
+    #
+    # Se arranca con lo que ya se capturó hoy, no vacío: así volver a correr el
+    # mismo día completa lo que falta en vez de duplicar lo que está.
+    vistos = claves_del_dia(hoy)
+    if vistos:
+        aviso = f"  Ya había {len(vistos)} productos capturados hoy; no se repiten."
+        print(aviso)
+        log_lines.append(aviso)
     repetidos = 0
 
     # Lo primero: recoger lo que dejó una corrida que se cayó. El pendiente es

@@ -5,8 +5,11 @@ name: Descubrir categorías (semanal)
 # los CATG de Tottus se mueven de rama. Sin esto, el lock se queda con la foto
 # del día que se generó.
 #
-# Lunes 11:00 UTC (06:00 Lima), una hora antes del scraping diario, para que si
-# hay cambios el lock nuevo ya esté cuando corra la extracción.
+# Lunes 11:00 UTC (06:00 Lima), un rato antes del disparo principal del
+# scraping (11:37), para que si hay cambios el lock nuevo ya esté. El orden no
+# está garantizado: el cron de Actions encola y los dos pueden atrasarse por
+# separado. Si este queda detrás, el lock nuevo rige desde el día siguiente, que
+# para un cambio de categorías es irrelevante.
 on:
   schedule:
     - cron: "0 11 * * 1"
@@ -55,4 +58,14 @@ jobs:
           git add targets.lock.yaml
           git diff --quiet --cached && echo "sin cambios" && exit 0
           git commit -m "chore: targets.lock.yaml al $(date -u +%Y-%m-%d)"
-          git push
+          # Rebasando, por lo mismo que en scrape.yml: este job corre los lunes
+          # a las 11:00 y el scraping dispara a las 11:37, asi que los dos
+          # pueden querer pushear casi a la vez.
+          for intento in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "push rechazado (intento $intento), rebasando sobre el remoto"
+            git pull --rebase --autostash origin main
+            sleep $((intento * 5))
+          done
+          echo "No se pudo pushear despues de 3 intentos"
+          exit 1

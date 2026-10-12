@@ -58,7 +58,62 @@ python scrape_all.py --familia res         # solo una familia
 python scrape_all.py --dry-run             # solo lista qué haría, sin ejecutar
 python scrape_all.py --no-sheets           # sin exportar a Google Sheets
 python scrape_all.py --excel               # además generar el XLSX local
+python scrape_all.py --si-falta            # no hacer nada si el día ya está
 ```
+
+## El horario y su deriva
+
+El cron de GitHub Actions es *best effort*: encola la corrida y la larga cuando
+puede. Medido sobre 121 días de histórico, contra las 07:00 de Lima que pedía
+el `0 12 * * *` original:
+
+| | atraso |
+|---|---|
+| mínimo | 14 min |
+| mediana | **2,1 h** |
+| p75 | 3,9 h |
+| p90 | 6,3 h |
+| máximo | **16,3 h** |
+
+Nunca arrancó antes de hora, solo después. Y 18 días no se capturaron nunca.
+
+Importa más de lo que parece: una promoción de horario comercial que empieza y
+termina el mismo día se pierde si la corrida cae a las 23:16, y una serie donde
+un día se capturó a las 07:14 y el siguiente a las 23:16 no está comparando lo
+mismo.
+
+Dos medidas:
+
+- **El minuto 37 en vez del 0.** La documentación de GitHub pide evitar el
+  comienzo de la hora, que es cuando se junta la cola de todo el mundo. No lo
+  puedo medir desde acá, así que lo tomo por lo que es: la recomendación de
+  quien opera esa cola.
+- **Tres disparos en vez de uno** (11:37, 14:37 y 18:37 UTC). Los programados
+  llevan `--si-falta`, así que si el primero ya capturó bien el día, los otros
+  no hacen nada. Que los tres se atrasen horas es mucho menos probable que uno
+  solo, y un día perdido pasa a ser un día tarde. El disparo manual **no** lleva
+  el flag: si alguien lo aprieta, es porque quiere que corra.
+
+### Correr dos veces el mismo día es seguro
+
+Es la condición para que los respaldos sirvan, y antes no se cumplía: el
+deduplicado era por corrida, así que una segunda corrida duplicaba el día
+entero. Ahora es **por día** — arranca con las claves ya capturadas hoy — y de
+ahí salen dos propiedades:
+
+- Si el día ya está completo, la segunda corrida no agrega nada (verificado:
+  41 productos antes, 41 después).
+- Si la primera corrida se cayó a mitad de camino, la segunda **completa lo que
+  falta** en vez de duplicar lo que está.
+
+Por eso `--si-falta` no se conforma con "ya hay datos de hoy": mira también si
+la corrida que los trajo dejó problemas o targets fallidos, y en ese caso vuelve
+a correr.
+
+El workflow lleva además un `concurrency` sin cancelación —dos corridas
+simultáneas se pisarían el pendiente— y el `git push` reintenta rebasando: si el
+remoto se movió mientras corríamos, el dato del día se perdería con el runner,
+porque no está en ningún otro lado.
 
 ## Qué se vigila
 

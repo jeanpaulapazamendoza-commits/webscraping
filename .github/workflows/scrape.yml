@@ -1,11 +1,40 @@
 name: Scraping de precios (diario)
 
-# Corre todos los días a las 12:00 UTC (= 07:00 Lima)
-# También permite correrlo manualmente desde la pestaña Actions
+# Tres disparos por día, no uno, y ninguno en la hora en punto.
+#
+# El cron de GitHub Actions es "best effort": encola y corre cuando puede.
+# Medido sobre 121 días de histórico, contra las 07:00 de Lima que pedía el
+# `0 12 * * *` anterior: mediana 2,1 h de atraso, p75 3,9 h, p90 6,3 h y un
+# máximo de 16,3 h. Nunca arrancó antes de hora, solo después. Y 18 días no se
+# capturaron nunca.
+#
+# Dos medidas, las dos contra lo mismo:
+#
+#   · El minuto 37 en vez del 0. La documentación de GitHub pide evitar el
+#     comienzo de la hora, que es cuando se junta toda la cola del mundo. No lo
+#     puedo medir desde acá, así que lo tomo como lo que es: la recomendación
+#     de quien opera la cola.
+#   · Dos disparos de respaldo. Van con --si-falta, así que si el primero ya
+#     capturó bien el día no hacen nada; y si el primero no corrió, o corrió y
+#     dejó la mitad, completan. Que los tres se atrasen horas es mucho menos
+#     probable que uno solo, y un día perdido se convierte en un día tarde.
+#
+# El disparo manual NO lleva --si-falta: si alguien lo aprieta, es porque
+# quiere que corra.
 on:
   schedule:
-    - cron: "0 12 * * *"
+    - cron: "37 11 * * *"   # 06:37 Lima — el principal
+    - cron: "37 14 * * *"   # 09:37 Lima — respaldo
+    - cron: "37 18 * * *"   # 13:37 Lima — último respaldo
   workflow_dispatch:
+
+# Dos corridas a la vez se pisarían el pendiente. Con esto la segunda espera a
+# que termine la primera, y cuando arranque va a ver el día ya capturado y no
+# hacer nada. cancel-in-progress en false a propósito: cancelar la que está
+# corriendo tiraría a la basura el trabajo ya hecho.
+concurrency:
+  group: scraping-diario
+  cancel-in-progress: false
 
 jobs:
   scrape:
@@ -44,7 +73,7 @@ jobs:
           GOOGLE_CREDS_JSON: ${{ secrets.GOOGLE_CREDS_JSON }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           TZ: America/Lima
-        run: python scrape_all.py
+        run: python scrape_all.py ${{ github.event_name == 'schedule' && '--si-falta' || '' }}
 
       - name: Commit & push histórico
         if: always()
@@ -54,7 +83,19 @@ jobs:
           git add data/historico_*.parquet data/_salud.json data/_badge.json web/datos
           # Si no hay cambios, no hacer commit (no fallar)
           git diff --quiet --cached || git commit -m "data: snapshot $(date -u +%Y-%m-%d_%H:%M)"
-          git push
+          # El push se reintenta rebasando. Si el remoto se movió mientras
+          # corríamos --el descubrimiento semanal commitea el lock los lunes a
+          # las 11:00, justo antes del disparo principal-- el push se rechaza,
+          # y sin esto el dato del día se perdería con el runner: no está en
+          # ningún otro lado.
+          for intento in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "push rechazado (intento $intento), rebasando sobre el remoto"
+            git pull --rebase --autostash origin main
+            sleep $((intento * 5))
+          done
+          echo "No se pudo pushear después de 3 intentos"
+          exit 1
 
       - name: Upload artifact (backup)
         if: always()
