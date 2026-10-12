@@ -142,6 +142,7 @@ COL_RENAME = {
     "precio_efectivo":       "Precio Efectivo (S/)",
     "tiene_descuento":       "Tiene Descuento",
     "descuento_pct":         "Descuento %",
+    "descuento_pct_sitio":   "Descuento % del sitio",
     "fecha_extraccion":      "Fecha Extracción",
 }
 
@@ -152,7 +153,7 @@ ORDEN_COLUMNAS = [
     "Precio Tarjeta (S/)", "Nombre Tarjeta", "Descuento Tarjeta %",
     "Precio Internet (S/)", "Precio Unidad (S/)", "Precio Normal (S/)",
     "Precio Descuento (S/)", "Precio Regular (S/)",
-    "Tiene Descuento", "Descuento %", "Fecha Extracción",
+    "Tiene Descuento", "Descuento %", "Descuento % del sitio", "Fecha Extracción",
     "Disponible", "Stock",
     "URL", "URL Imagen", "Vendedor",
 ]
@@ -236,6 +237,13 @@ def normalizar_df(df: pd.DataFrame) -> pd.DataFrame:
     df["descuento_pct"] = pd.to_numeric(
         df["descuento_pct"], errors="coerce"
     ).fillna(0).astype(float)
+
+    # 8b. El del sitio NO se rellena con 0: vacío significa que ese producto no
+    #     tenía badge, que es distinto de un descuento de cero.
+    if "descuento_pct_sitio" in df.columns:
+        df["descuento_pct_sitio"] = pd.to_numeric(
+            df["descuento_pct_sitio"], errors="coerce"
+        )
 
     # 9. Fecha: formato YYYY-MM-DD
     df["fecha_extraccion"] = (

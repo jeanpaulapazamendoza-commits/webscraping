@@ -77,6 +77,41 @@ def precio_por_tipo(prices: list, tipo: str) -> float | None:
     return None
 
 
+def precio_tachado(prices: list) -> float | None:
+    """El precio que el sitio muestra tachado: su propia referencia.
+
+    Tottus lo marca con `crossed: true`, y en la muestra medida ese flag cae
+    siempre sobre normalPrice (58 de 58). Leerlo es mejor que deducirlo del
+    nombre del tipo, porque no hay que suponer cuál de los tres precios es la
+    referencia en cada combinación.
+    """
+    for pz in prices:
+        if pz.get("crossed") and pz.get("price"):
+            try:
+                return float(pz["price"][0].replace(",", "."))
+            except (ValueError, IndexError):
+                pass
+    return None
+
+
+def descuento_del_sitio(p: dict) -> float | None:
+    """El porcentaje que Tottus publica en su propio badge, tal cual lo ve el
+    cliente. Viene como "-18%".
+
+    Se guarda sin recalcular nada: es la verdad publicada, y tener las dos
+    cifras lado a lado permite detectar que el cálculo propio se desvió sin
+    tener que volver a scrapear. Justamente lo que faltó para notar que el
+    descuento se venía midiendo contra el precio equivocado.
+    """
+    etiqueta = ((p.get("discountBadge") or {}).get("label") or "").strip()
+    if not etiqueta:
+        return None
+    try:
+        return abs(float(re.sub(r"[^0-9.\-]", "", etiqueta)))
+    except ValueError:
+        return None
+
+
 def normalizar_producto(p: dict, categoria: str, supermercado: str) -> dict:
     prices = p.get("prices", [])
     p_cmr   = precio_por_tipo(prices, "cmrPrice")       # con tarjeta CMR
@@ -85,7 +120,20 @@ def normalizar_producto(p: dict, categoria: str, supermercado: str) -> dict:
 
     # El precio "descuento" es el CMR si existe, si no el internet, si no el normal
     p_desc = p_cmr or p_inet or p_norm
-    p_reg  = p_inet if p_cmr else (p_norm if p_inet else None)
+
+    # La referencia es el precio TACHADO, no el precio internet.
+    #
+    # La regla anterior era `p_inet if p_cmr else (p_norm if p_inet else None)`:
+    # cuando el producto tenía los tres precios, medía el CMR contra el precio
+    # web en vez de contra el precio de lista, que es el que el sitio tacha. El
+    # resultado era un descuento sistemáticamente corto — en "Piernitas de Pollo
+    # Importado" el sitio anuncia 35% y el pipeline guardaba 8,9% — y un
+    # precio_regular que significaba una cosa en las filas con CMR y otra en el
+    # resto, así que ninguna serie de descuentos era comparable consigo misma.
+    #
+    # Contrastado contra el badge que publica el propio sitio: esta regla lo
+    # reproduce en 63 de 63 productos; la anterior acertaba en 36.
+    p_reg = precio_tachado(prices) or p_norm or p_inet
 
     # Si hay precio CMR, calcular el porcentaje de descuento de la tarjeta
     # vs el precio internet (precio sin tarjeta)
@@ -114,6 +162,9 @@ def normalizar_producto(p: dict, categoria: str, supermercado: str) -> dict:
         "tiene_descuento":        bool(p_reg and p_desc and p_desc < p_reg),
         "descuento_pct":          round((1 - p_desc / p_reg) * 100, 1)
                                   if p_reg and p_desc and p_reg > 0 else None,
+        # El número que el sitio muestra, sin recalcular. Sirve para contrastar
+        # el de arriba y notar una desviación sin volver a scrapear.
+        "descuento_pct_sitio":    descuento_del_sitio(p),
         "fecha_extraccion":       datetime.now().isoformat(timespec="seconds"),
     }
 

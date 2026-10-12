@@ -26,7 +26,7 @@ CAMPOS_HISTORICO = [
     "precio_tarjeta", "nombre_tarjeta", "tarjeta_descuento_pct",
     "precio_internet", "precio_unidad", "precio_normal",
     "precio_descuento", "precio_regular",
-    "tiene_descuento", "descuento_pct", "fecha_extraccion",
+    "tiene_descuento", "descuento_pct", "descuento_pct_sitio", "fecha_extraccion",
 ]
 
 
