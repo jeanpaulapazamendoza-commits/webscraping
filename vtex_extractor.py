@@ -419,14 +419,21 @@ def extraer(url: str, supermercado: str, categoria: str,
 
 
 # ── Persistencia ────────────────────────────────────────────────────────────
-
-CAMPOS_HISTORICO = [
-    "supermercado", "categoria", "nombre", "producto_id", "sku_id",
-    "marca", "url", "imagen", "vendedor",
-    "precio_cmr", "precio_internet", "precio_normal",
-    "precio_descuento", "precio_regular",
-    "tiene_descuento", "descuento_pct", "fecha_extraccion",
-]
+#
+# El modo suelto guarda un JSON en .tmp/ y nada más. Antes también hacía append
+# a data/historico.csv, con un esquema propio de 17 campos que se había quedado
+# en `precio_cmr` —renombrado a `precio_tarjeta` hace meses— mientras el
+# histórico de verdad iba por 25. Ese CSV no lo leía nadie: el histórico vive en
+# data/historico_YYYY-MM.parquet y lo escribe historico_io.
+#
+# Y hoy escribirlo sería peor que inútil. El deduplicado es por día: la corrida
+# arranca con las claves ya capturadas y no las vuelve a pedir. Una corrida
+# suelta de depuración que escribiera en el histórico marcaría esos productos
+# como capturados, y la corrida programada los saltearía — un día a medias por
+# haber mirado una categoría a mano.
+#
+# Para agregar al histórico está scrape_all.py, que es el camino soportado:
+#     python scrape_all.py --super wong --familia pollo
 
 
 def guardar_snapshot(productos: list[dict], super_name: str, categoria: str) -> Path:
@@ -437,19 +444,6 @@ def guardar_snapshot(productos: list[dict], super_name: str, categoria: str) -> 
     with open(out, "w", encoding="utf-8") as f:
         json.dump(productos, f, ensure_ascii=False, indent=2)
     return out
-
-
-def append_a_historico(productos: list[dict]) -> tuple[Path, bool]:
-    import csv
-    historico = Path("data") / "historico.csv"
-    historico.parent.mkdir(exist_ok=True)
-    es_nuevo = not historico.exists() or historico.stat().st_size == 0
-    with open(historico, "a", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=CAMPOS_HISTORICO, extrasaction="ignore")
-        if es_nuevo:
-            w.writeheader()
-        w.writerows(productos)
-    return historico, es_nuevo
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -464,8 +458,6 @@ def main():
                         help="Nombre canónico de la categoría (carne-de-res, pollo, frutas, ...)")
     parser.add_argument("--delay", type=float, default=1.0,
                         help="Segundos entre requests (default: 1.0)")
-    parser.add_argument("--no-historico", action="store_true",
-                        help="No agregar al CSV histórico")
     args = parser.parse_args()
 
     productos = extraer(args.url, args.supermercado, args.categoria, args.delay)
@@ -487,14 +479,8 @@ def main():
         print(f"  Precio máx:  S/ {max(precios):.2f}")
         print(f"  Precio prom: S/ {sum(precios)/len(precios):.2f}")
     print(f"\n  Snapshot JSON: {out}")
-
-    if not args.no_historico:
-        hist_path, es_nuevo = append_a_historico(productos)
-        accion = "creado" if es_nuevo else "actualizado"
-        print(f"  Histórico CSV {accion}: {hist_path}  (+{len(productos)} filas)")
+    print("  (esto no toca el histórico; para eso está scrape_all.py)")
 
 
 if __name__ == "__main__":
     main()
-
-## Version v3

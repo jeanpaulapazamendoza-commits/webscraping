@@ -61,6 +61,18 @@ python scrape_all.py --excel               # además generar el XLSX local
 python scrape_all.py --si-falta            # no hacer nada si el día ya está
 ```
 
+Para mirar una categoría suelta mientras se depura un extractor:
+
+```bash
+python tottus_extractor.py "https://www.tottus.com.pe/tottus-pe/lista/CATG16918/Carne-de-Res"
+python vtex_extractor.py "https://www.wong.pe/carnes-aves-y-pescados/cerdo" --super wong --categoria cerdo
+```
+
+Eso deja un JSON en `.tmp/` y **no toca el histórico**, a propósito. El
+deduplicado es por día: una corrida de depuración que escribiera ahí marcaría
+esos productos como capturados y la corrida programada los saltearía, dejando el
+día a medias por haber mirado una categoría a mano.
+
 ## El horario y su deriva
 
 El cron de GitHub Actions es *best effort*: encola la corrida y la larga cuando
