@@ -23,7 +23,7 @@ import streamlit as st
 import altair as alt
 
 from historico_io import DATA_DIR
-from normalizar import normalizar_df
+from normalizar import ESQUEMA_SALIDA, normalizar_df
 
 st.set_page_config(
     page_title="Precios Supermercados Perú",
@@ -144,11 +144,15 @@ def generar_csv(desde, hasta, filtros) -> bytes:
             mask &= parte["tiene_descuento"] == "True"
         trozo = parte[mask]
         if not trozo.empty:
-            trozos.append(normalizar_df(trozo)
-                          .to_csv(index=False, header=primera)
-                          .encode("utf-8"))
+            norm = normalizar_df(trozo)
+            # normalizar_df garantiza el esquema fijo, pero lo verificamos
+            # igual: un desalineo acá no da error, solo un CSV corrido.
+            assert list(norm.columns) == ESQUEMA_SALIDA, (
+                f"{ruta.name} produjo otro esquema: {list(norm.columns)}"
+            )
+            trozos.append(norm.to_csv(index=False, header=primera).encode("utf-8"))
             primera = False
-        del parte, trozo
+        del parte, trozo, norm
     # El BOM va una sola vez al principio: Excel en Windows lo necesita para
     # mostrar bien las ñ y los acentos.
     return b"\xef\xbb\xbf" + b"".join(trozos)

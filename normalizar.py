@@ -154,6 +154,21 @@ ORDEN_COLUMNAS = [
     "URL", "URL Imagen", "Vendedor",
 ]
 
+# El esquema de salida es FIJO: estas 22 columnas, en este orden, siempre.
+#
+# Antes se devolvía solo la intersección con lo que trajera el DataFrame de
+# entrada, y eso rompió cosas dos veces. Las particiones de mayo a agosto no
+# tienen precio_unidad (el campo se empezó a capturar en septiembre), así que
+# normalizar mayo daba 21 columnas y normalizar septiembre daba 22. Juntar los
+# dos resultados en un CSV con una sola cabecera corría un lugar todo lo que
+# va desde "Precio Unidad" en adelante, y la Fecha Extracción terminaba
+# debajo de un encabezado de precio. Lo mismo pasó al appendear al Google
+# Sheet, que escribe por posición.
+#
+# Una columna que la entrada no trae sale vacía, que es la verdad: ese dato no
+# se capturaba en esa fecha.
+ESQUEMA_SALIDA = ORDEN_COLUMNAS
+
 
 def normalizar_df(df: pd.DataFrame) -> pd.DataFrame:
     """Aplica todas las normalizaciones y devuelve un DataFrame listo para Power BI.
@@ -222,11 +237,15 @@ def normalizar_df(df: pd.DataFrame) -> pd.DataFrame:
     # 10. Renombrar columnas al esquema español
     df = df.rename(columns=COL_RENAME)
 
-    # 11. Reordenar (sólo columnas que existen — robusto a datasets parciales)
-    cols_finales = [c for c in ORDEN_COLUMNAS if c in df.columns]
-    df = df[cols_finales]
-
-    return df
+    # 11. Reordenar al esquema fijo. reindex en vez de filtrar: las columnas
+    #     que falten se crean vacías, así dos lotes distintos siempre producen
+    #     la misma tabla y se pueden concatenar o appendear sin desalinear.
+    sobrantes = [c for c in df.columns if c not in ESQUEMA_SALIDA]
+    if sobrantes:
+        # No es un error: puede venir una columna nueva del extractor que
+        # todavía no está en el esquema. Pero conviene que se note.
+        print(f"  ⚠ normalizar_df: columnas fuera del esquema, se descartan: {sobrantes}")
+    return df.reindex(columns=ESQUEMA_SALIDA)
 
 
 def construir_resumen(df_normalizado: pd.DataFrame) -> pd.DataFrame:
