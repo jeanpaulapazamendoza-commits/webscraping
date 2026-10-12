@@ -125,15 +125,28 @@ def construir_series(df: pd.DataFrame) -> dict:
     precio publicado. Se registra en vez de omitirse: si no, el arrastre hacia
     adelante seguiría mostrando el último precio conocido y afirmaría un precio
     que ya no existe.
+
+    Cada punto es [día, precio, regular, promo]. El precio solo no alcanzaba:
+    el pollo entero de Plaza Vea tiene 40 cambios en 121 días oscilando entre
+    6,30 y 9,40, y con un único número no hay forma de distinguir una promo de
+    tres días de una baja del precio de lista. Con el regular al lado, la
+    distancia entre las dos líneas ES el descuento y se lee sin marcar nada.
+
+    Cuesta poco: medido, 132 KB gzip contra 169 KB, y los puntos de cambio
+    pasan de 39.938 a 40.215. El regular se mueve casi siempre junto con el
+    precio, así que casi no agrega quiebres.
     """
     series = {}
     for clave, g in df.sort_values("dia").groupby("clave", sort=False):
         puntos = []
         anterior = object()
-        for dia, precio in zip(g["dia"], g["precio_descuento"]):
-            actual = _redondear(precio)
+        for dia, precio, regular, desc in zip(
+                g["dia"], g["precio_descuento"], g["precio_regular"],
+                g["tiene_descuento"]):
+            actual = (_redondear(precio), _redondear(regular),
+                      1 if str(desc) == "True" else 0)
             if actual != anterior:
-                puntos.append([dia, actual])
+                puntos.append([dia, *actual])
                 anterior = actual
         if puntos:
             series[clave] = puntos

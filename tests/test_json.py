@@ -87,8 +87,33 @@ def test_el_log_de_cambios_reconstruye_la_serie_completa():
 def test_un_precio_que_nunca_cambia_deja_un_solo_punto():
     dias = [f"2026-10-{d:02d}" for d in range(1, 8)]
     salida = _construir([_fila(d, "wong|1", 9.9) for d in dias])
-    assert salida["series"]["wong|1"] == [["2026-10-01", 9.9]]
+    assert salida["series"]["wong|1"] == [["2026-10-01", 9.9, 9.9, 0]]
     assert _reconstruir(salida["series"]["wong|1"], dias) == {d: 9.9 for d in dias}
+
+
+def test_la_serie_lleva_el_precio_de_lista_y_la_promo():
+    """Con el precio solo, una promo de tres días y una baja del precio de
+    lista se dibujan igual. Con el regular al lado, la distancia entre las dos
+    líneas ES el descuento."""
+    salida = _construir([
+        _fila("2026-10-01", "wong|1", 9.9),
+        _fila("2026-10-02", "wong|1", 7.9, precio_regular="9.9",
+              tiene_descuento="True"),
+    ])
+    assert salida["series"]["wong|1"] == [["2026-10-01", 9.9, 9.9, 0],
+                                          ["2026-10-02", 7.9, 9.9, 1]]
+
+
+def test_un_cambio_solo_en_la_promo_tambien_deja_un_punto():
+    """El mismo precio puede dejar de estar en promo —baja el de lista hasta
+    igualarlo— y eso es un cambio que hay que poder ver."""
+    salida = _construir([
+        _fila("2026-10-01", "wong|1", 7.9, precio_regular="9.9",
+              tiene_descuento="True"),
+        _fila("2026-10-02", "wong|1", 7.9, precio_regular="7.9",
+              tiene_descuento="False"),
+    ])
+    assert len(salida["series"]["wong|1"]) == 2
 
 
 # ─── limpieza del dato ───────────────────────────────────────────────────────
@@ -105,7 +130,8 @@ def test_un_precio_cero_no_es_un_precio():
         _fila("2026-10-01", "wong|1", 9.9),
         _fila("2026-10-02", "wong|1", 0),
     ])
-    assert salida["series"]["wong|1"] == [["2026-10-01", 9.9], ["2026-10-02", None]]
+    assert salida["series"]["wong|1"] == [["2026-10-01", 9.9, 9.9, 0],
+                                         ["2026-10-02", None, None, 0]]
     assert salida["indice"]["productos"][0]["precio"] is None
 
 

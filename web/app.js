@@ -240,16 +240,90 @@ function agrupar(productos, hayBusqueda) {
  *  reconstruye la escalera. Un punto nulo corta la serie: el producto dejó de
  *  tener precio publicado, y arrastrar el último valor afirmaría un precio que
  *  ya no existe. */
+/** La serie día por día, arrastrando el último valor conocido.
+ *
+ *  Cada día devuelve {p, r, promo} o null si todavía no hay dato: `p` es lo que
+ *  se paga, `r` el precio de lista. La distancia entre los dos es el descuento,
+ *  y es lo que hace legible el gráfico — el pollo entero de Plaza Vea cambia de
+ *  precio 40 veces en 121 días, y sin la referencia eso es ruido. */
 function serieDiaria(id, dias) {
   const puntos = estado.series[id];
   if (!puntos || !puntos.length) return [];
   const salida = [];
   let i = 0; let actual = null;
   dias.forEach((d) => {
-    while (i < puntos.length && puntos[i][0] <= d) { actual = puntos[i][1]; i += 1; }
+    while (i < puntos.length && puntos[i][0] <= d) {
+      const [, p, r, promo] = puntos[i];
+      actual = p == null ? null : { p, r, promo: !!promo };
+      i += 1;
+    }
     salida.push(actual);
   });
   return salida;
+}
+
+/** Los números de una serie: lo que contesta "¿compro hoy o espero?". */
+function metricasDeItem(valores, dias) {
+  const conDato = [];
+  valores.forEach((v, i) => { if (v) conDato.push({ ...v, dia: dias[i] }); });
+  if (!conDato.length) return null;
+  const precios = conDato.map((v) => v.p).sort((a, b) => a - b);
+  const mediana = precios.length % 2
+    ? precios[(precios.length - 1) / 2]
+    : (precios[precios.length / 2 - 1] + precios[precios.length / 2]) / 2;
+  const minimo = conDato.reduce((a, b) => (b.p < a.p ? b : a));
+  const maximo = conDato.reduce((a, b) => (b.p > a.p ? b : a));
+  const enPromo = conDato.filter((v) => v.promo);
+  const hoy = conDato[conDato.length - 1];
+  return {
+    hoy: hoy.p,
+    dias: conDato.length,
+    mediana,
+    minimo: minimo.p,
+    minimoDia: minimo.dia,
+    maximo: maximo.p,
+    diasEnPromo: enPromo.length,
+    // Cuánto se aparta hoy de su propia mediana. Es la lectura que importa:
+    // un precio no es caro o barato en absoluto, lo es contra su historia.
+    contraMediana: mediana ? (hoy.p - mediana) / mediana : null,
+  };
+}
+
+/** Cuántos días fue más barata cada cadena.
+ *
+ *  La tabla de arriba dice quién está más barato HOY, que un día de promo da
+ *  vuelta. Esto dice quién lo estuvo de verdad: medido sobre el pollo entero,
+ *  Plaza Vea ganó 90 de 120 días. */
+function masBaratoPorDia(series, dias) {
+  const cuenta = {};
+  let conDato = 0;
+  dias.forEach((_, i) => {
+    let mejor = null;
+    series.forEach(({ p, valores }) => {
+      const v = valores[i];
+      if (!v) return;
+      if (!mejor || v.p < mejor.precio) mejor = { cadena: p.cadena, precio: v.p };
+    });
+    if (!mejor) return;
+    conDato += 1;
+    cuenta[mejor.cadena] = (cuenta[mejor.cadena] || 0) + 1;
+  });
+  const orden = Object.entries(cuenta).sort((a, b) => b[1] - a[1]);
+  return orden.length ? { cadena: orden[0][0], dias: orden[0][1], total: conDato } : null;
+}
+
+/** Marcas de eje en números redondos.
+ *
+ *  Antes salían del rango crudo y daban cosas como 10,99 · 8,96 · 6,94, que no
+ *  se leen de un vistazo. */
+function marcasDeEje(lo, hi, cuantas = 4) {
+  const bruto = (hi - lo) / (cuantas - 1);
+  const mag = 10 ** Math.floor(Math.log10(bruto));
+  const paso = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((p) => p >= bruto) || mag * 10;
+  const inicio = Math.ceil(lo / paso) * paso;
+  const marcas = [];
+  for (let v = inicio; v <= hi + 1e-9; v += paso) marcas.push(Math.round(v * 100) / 100);
+  return marcas;
 }
 
 function diasDelRango(items) {
@@ -283,19 +357,32 @@ function estilosDeSerie(items) {
   });
 }
 
-function dibujarGrafico(items, dias, estilos) {
-  const W = 760; const H = 220;
-  const M = { t: 10, r: 12, b: 22, l: 42 };
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+/** El gráfico, con el precio de lista de fondo y lectura al pasar el mouse.
+ *
+ *  Dos líneas por producto: la sólida es lo que se paga y la tenue punteada el
+ *  precio de lista. El hueco entre las dos es el descuento, así que las rachas
+ *  de promo se ven sin marcar día por día — que con el pollo entero, en promo
+ *  el 57% de los días, sería una mancha de puntos sin información. */
+function dibujarGrafico(series, dias) {
+  // El viewBox se achica en el teléfono en vez de dejar que el de 760 se
+  // reduzca a 345: ahí el factor de escala es 0,45 y el texto del eje, que son
+  // 10,5 unidades, termina dibujado a 5 px. Con el lienzo angosto la escala
+  // queda cerca de 1 y los números se leen.
+  const angosto = window.innerWidth < 560;
+  const W = angosto ? 380 : 760;
+  const H = angosto ? 250 : 230;
+  const M = angosto ? { t: 10, r: 10, b: 22, l: 36 } : { t: 12, r: 14, b: 24, l: 46 };
+  const ns = 'http://www.w3.org/2000/svg';
+  const caja = el('div', 'grafico-caja');
+  const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('class', 'grafico');
   svg.setAttribute('role', 'img');
+  caja.append(svg);
 
-  const series = items
-    .map((p, i) => ({ p, estilo: estilos[i], valores: serieDiaria(p.id, dias) }))
-    .filter((s) => s.valores.some((v) => v != null));
-  const todos = series.flatMap((s) => s.valores).filter((v) => v != null);
-  if (!todos.length) return svg;
+  const todos = series.flatMap((s) => s.valores)
+    .filter(Boolean).flatMap((v) => [v.p, v.r]).filter((v) => v != null);
+  if (!todos.length) return caja;
 
   let lo = Math.min(...todos); let hi = Math.max(...todos);
   if (lo === hi) { lo -= 1; hi += 1; }
@@ -303,52 +390,108 @@ function dibujarGrafico(items, dias, estilos) {
 
   const x = (i) => M.l + (i / Math.max(dias.length - 1, 1)) * (W - M.l - M.r);
   const y = (v) => M.t + (1 - (v - lo) / (hi - lo)) * (H - M.t - M.b);
-  const ns = 'http://www.w3.org/2000/svg';
   const crear = (t, attrs) => {
     const n = document.createElementNS(ns, t);
     Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
     return n;
   };
 
-  // grilla y eje de precios
-  for (let k = 0; k <= 3; k += 1) {
-    const v = lo + ((hi - lo) * k) / 3;
+  marcasDeEje(lo, hi).forEach((v) => {
     svg.append(crear('line', { class: 'grilla', x1: M.l, x2: W - M.r, y1: y(v), y2: y(v) }));
     const t = crear('text', { x: M.l - 6, y: y(v) + 3.5, 'text-anchor': 'end' });
     t.textContent = soles(v);
     svg.append(t);
-  }
+  });
 
-  // fechas: primera, media y última
-  [0, Math.floor(dias.length / 2), dias.length - 1].forEach((i, k) => {
-    if (i < 0 || i >= dias.length) return;
+  // Cinco fechas repartidas: con dos, un rango de 121 días no se ubica. En el
+  // teléfono entran tres sin pisarse.
+  const cuantas = Math.min(angosto ? 3 : 5, dias.length);
+  for (let k = 0; k < cuantas; k += 1) {
+    const i = Math.round((k / Math.max(cuantas - 1, 1)) * (dias.length - 1));
     const t = crear('text', {
-      x: x(i), y: H - 6,
-      'text-anchor': k === 0 ? 'start' : k === 2 ? 'end' : 'middle',
+      x: x(i), y: H - 7,
+      'text-anchor': k === 0 ? 'start' : k === cuantas - 1 ? 'end' : 'middle',
     });
     const [, m, d] = dias[i].split('-');
     t.textContent = `${d}/${m}`;
     svg.append(t);
-  });
+  }
   svg.append(crear('line', { class: 'eje', x1: M.l, x2: W - M.r, y1: H - M.b, y2: H - M.b }));
 
-  // una línea por producto, cortada donde no hay precio
-  series.forEach(({ estilo, valores }) => {
+  const trazar = (valores, campo) => {
     let d = ''; let dibujando = false;
     valores.forEach((v, i) => {
-      if (v == null) { dibujando = false; return; }
-      d += `${dibujando ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+      const valor = v && v[campo];
+      if (valor == null) { dibujando = false; return; }
+      d += `${dibujando ? 'L' : 'M'}${x(i).toFixed(1)} ${y(valor).toFixed(1)}`;
       dibujando = true;
     });
+    return d;
+  };
+
+  // El precio de lista va primero, para que quede por detrás. Solo se dibuja
+  // si en algún momento se despega del precio: si nunca hubo descuento, las
+  // dos líneas serían la misma y solo agregaría tinta.
+  series.forEach(({ estilo, valores }) => {
+    if (!valores.some((v) => v && v.r != null && v.r > v.p + 0.009)) return;
+    const d = trazar(valores, 'r');
+    if (d) svg.append(crear('path', { class: 'serie-lista', d, stroke: estilo.color }));
+  });
+
+  series.forEach(({ estilo, valores }) => {
+    const d = trazar(valores, 'p');
     if (!d) return;
     const attrs = { class: 'serie', d, stroke: estilo.color };
     if (estilo.trazo) attrs['stroke-dasharray'] = estilo.trazo;
     svg.append(crear('path', attrs));
   });
 
+  // ── lectura al pasar el mouse ──────────────────────────────────────────
+  const guia = crear('line', {
+    class: 'guia', y1: M.t, y2: H - M.b, x1: 0, x2: 0, opacity: 0,
+  });
+  svg.append(guia);
+  const globo = el('div', 'globo');
+  globo.hidden = true;
+  caja.append(globo);
+
+  const leer = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    const frac = (px - M.l) / (W - M.l - M.r);
+    const i = Math.max(0, Math.min(dias.length - 1, Math.round(frac * (dias.length - 1))));
+    guia.setAttribute('x1', x(i)); guia.setAttribute('x2', x(i));
+    guia.setAttribute('opacity', 1);
+
+    const [, m, d] = dias[i].split('-');
+    globo.replaceChildren(el('b', null, `${d}/${m}`));
+    series.forEach(({ p, estilo, valores }) => {
+      const v = valores[i];
+      if (!v) return;
+      const linea = el('span');
+      const punto = el('i');
+      punto.style.background = estilo.color;
+      linea.append(punto, document.createTextNode(
+        `${CADENAS[p.cadena]?.nombre || p.cadena}  S/ ${soles(v.p)}`,
+      ));
+      if (v.promo && v.r != null && v.r > v.p) {
+        linea.append(el('em', null, ` antes S/ ${soles(v.r)}`));
+      }
+      globo.append(linea);
+    });
+    globo.hidden = false;
+    // El globo salta de lado cerca del borde derecho para no salirse.
+    const izq = (x(i) / W) * 100;
+    globo.style.left = `${izq}%`;
+    globo.classList.toggle('a-la-izquierda', izq > 62);
+  };
+  const salir = () => { guia.setAttribute('opacity', 0); globo.hidden = true; };
+  caja.addEventListener('mousemove', leer);
+  caja.addEventListener('mouseleave', salir);
+
   svg.setAttribute('aria-label',
     `Evolución de precio de ${series.length} producto(s) entre ${dias[0]} y ${dias[dias.length - 1]}.`);
-  return svg;
+  return caja;
 }
 
 function listaDeCambios(items) {
@@ -364,6 +507,74 @@ function listaDeCambios(items) {
   });
   eventos.sort((a, b) => b.dia.localeCompare(a.dia));
   return eventos.slice(0, 6);
+}
+
+/** Los números del producto, debajo del gráfico.
+ *
+ *  El gráfico muestra la forma; esto contesta la pregunta. Una fila por
+ *  producto con las mismas columnas, y arriba el dato que no estaba en ningún
+ *  lado: quién fue más barato de verdad, no quién lo está hoy. */
+function pintarMetricas(series, dias) {
+  const caja = el('div', 'metricas');
+  const ganador = masBaratoPorDia(series, dias);
+  if (ganador && series.length > 1) {
+    const pct = Math.round((ganador.dias / ganador.total) * 100);
+    const p = el('p', 'ganador');
+    const punto = el('i');
+    punto.style.background = CADENAS[ganador.cadena]?.color || 'var(--apagado)';
+    p.append(
+      punto,
+      el('b', null, CADENAS[ganador.cadena]?.nombre || ganador.cadena),
+      document.createTextNode(` fue el más barato en ${ganador.dias} de ${ganador.total} días (${pct}%)`),
+    );
+    caja.append(p);
+  }
+
+  const tabla = el('table', 'tabla-metricas');
+  const thead = el('thead');
+  const filaCab = el('tr');
+  // La columna vacía después de "Mínimo" es la fecha en que se tocó.
+  [['', null], ['Hoy', 'num'], ['Mediana', 'num'], ['Mínimo', 'num'],
+    ['', 'num-chico'], ['Máximo', 'num'], ['En promo', 'num']]
+    .forEach(([t, clase]) => filaCab.append(el('th', clase, t)));
+  thead.append(filaCab);
+  const tbody = el('tbody');
+
+  series.forEach(({ p, estilo, valores }) => {
+    const m = metricasDeItem(valores, dias);
+    if (!m) return;
+    const tr = el('tr');
+    const nombre = el('td');
+    const punto = el('i');
+    punto.style.background = estilo.color;
+    let etiqueta = CADENAS[p.cadena]?.nombre || p.cadena;
+    if (estilo.repetida) etiqueta += ` · ${p.nombre.split(' ').slice(-2).join(' ')}`;
+    nombre.append(punto, document.createTextNode(etiqueta));
+
+    const hoy = el('td', 'num');
+    hoy.append(el('b', null, `S/ ${soles(m.hoy)}`));
+    if (m.contraMediana != null && Math.abs(m.contraMediana) >= 0.02) {
+      const sube = m.contraMediana > 0;
+      hoy.append(el('em', sube ? 'caro' : 'barato',
+        `${sube ? '+' : ''}${Math.round(m.contraMediana * 100)}%`));
+    }
+
+    const [, mesMin, diaMin] = m.minimoDia.split('-');
+    tr.append(
+      nombre,
+      hoy,
+      el('td', 'num', `S/ ${soles(m.mediana)}`),
+      el('td', 'num', `S/ ${soles(m.minimo)}`),
+      el('td', 'num-chico', `${diaMin}/${mesMin}`),
+      el('td', 'num', `S/ ${soles(m.maximo)}`),
+      el('td', 'num', m.dias ? `${Math.round((m.diasEnPromo / m.dias) * 100)}%` : '—'),
+    );
+    tbody.append(tr);
+  });
+
+  tabla.append(thead, tbody);
+  caja.append(tabla);
+  return caja;
 }
 
 function pintarDetalle(grupo) {
@@ -400,7 +611,40 @@ function pintarDetalle(grupo) {
     leyenda.append(s);
   });
   cab.append(leyenda);
-  caja.append(cab, dibujarGrafico(grupo.items, dias, estilos));
+
+  // Rango: 121 días apretados en 760 px es parte de por qué el gráfico se leía
+  // como ruido. El de 30 días es el que contesta "¿está caro esta semana?".
+  const RANGOS = [['30 d', 30], ['90 d', 90], ['Todo', 0]];
+  const selector = el('div', 'rangos');
+  const lienzo = el('div', 'lienzo');
+  let rango = dias.length > 120 ? 90 : 0;
+
+  const redibujar = () => {
+    const visibles = rango ? dias.slice(-rango) : dias;
+    const series = grupo.items
+      .map((p, i) => ({ p, estilo: estilos[i], valores: serieDiaria(p.id, visibles) }))
+      .filter((s) => s.valores.some(Boolean));
+    lienzo.replaceChildren(
+      dibujarGrafico(series, visibles),
+      pintarMetricas(series, visibles),
+    );
+    [...selector.children].forEach((b) => {
+      b.classList.toggle('activo', Number(b.dataset.dias) === rango);
+    });
+  };
+
+  RANGOS.forEach(([etiqueta, n]) => {
+    if (n && dias.length <= n) return;
+    const b = el('button', null, etiqueta);
+    b.type = 'button';
+    b.dataset.dias = n;
+    b.addEventListener('click', (ev) => { ev.stopPropagation(); rango = n; redibujar(); });
+    selector.append(b);
+  });
+  if (selector.children.length > 1) cab.append(selector);
+
+  caja.append(cab, lienzo);
+  redibujar();
 
   const cambios = listaDeCambios(grupo.items);
   if (cambios.length) {

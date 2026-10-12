@@ -259,12 +259,95 @@ body {
 .detalle-leyenda span { display: inline-flex; align-items: center; gap: 5px; }
 .detalle-leyenda i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 
+/* Selector de rango. 121 días apretados se leen como ruido; el de 30 es el
+   que contesta "¿está caro esta semana?". */
+.rangos { display: flex; gap: 4px; }
+.rangos button {
+  font: inherit; font-size: 12px; padding: 3px 9px; cursor: pointer;
+  color: var(--apagado); background: transparent;
+  border: 1px solid var(--linea); border-radius: 999px;
+}
+.rangos button:hover { color: var(--tinta); border-color: var(--linea-fuerte); }
+.rangos button.activo { color: var(--tinta); border-color: var(--acento);
+                        background: color-mix(in srgb, var(--acento) 14%, transparent); }
+
+.grafico-caja { position: relative; }
 .grafico { width: 100%; height: auto; display: block; overflow: visible; }
 .grafico .eje { stroke: var(--linea-fuerte); stroke-width: 1; }
 .grafico .grilla { stroke: var(--linea); stroke-width: 1; stroke-dasharray: 3 4; }
-.grafico text { font-size: 10.5px; fill: var(--apagado); }
+.grafico text { font-size: 10.5px; fill: var(--apagado);
+                font-variant-numeric: tabular-nums; }
 .grafico .serie { fill: none; stroke-width: 2; stroke-linejoin: round;
                   stroke-linecap: round; }
+/* El precio de lista, por detrás: el hueco contra la línea sólida es el
+   descuento. Tenue a propósito, es referencia y no protagonista. */
+.grafico .serie-lista { fill: none; stroke-width: 1.5; opacity: .32;
+                        stroke-dasharray: 2 4; stroke-linecap: round; }
+.grafico .guia { stroke: var(--linea-fuerte); stroke-width: 1; }
+
+.globo {
+  position: absolute; top: 4px; transform: translateX(10px);
+  pointer-events: none; z-index: 2;
+  background: var(--superficie); border: 1px solid var(--linea-fuerte);
+  border-radius: 8px; padding: 7px 9px; font-size: 12px; line-height: 1.5;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .28); white-space: nowrap;
+}
+.globo.a-la-izquierda { transform: translateX(calc(-100% - 10px)); }
+.globo b { display: block; color: var(--apagado); font-weight: 600;
+           font-size: 11px; margin-bottom: 2px; }
+.globo span { display: flex; align-items: center; gap: 6px;
+              font-variant-numeric: tabular-nums; }
+.globo i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.globo em { font-style: normal; color: var(--apagado);
+            text-decoration: line-through; }
+
+/* Los números del producto. El gráfico muestra la forma; esto contesta. */
+.metricas { margin-top: 12px; }
+.metricas .ganador {
+  margin: 0 0 8px; font-size: 13px; color: var(--apagado);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.metricas .ganador i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.metricas .ganador b { color: var(--tinta); }
+
+.tabla-metricas { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabla-metricas th {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--apagado);
+  text-align: left; padding: 0 0 5px; border-bottom: 1px solid var(--linea);
+}
+.tabla-metricas th.num, .tabla-metricas th.num-chico { text-align: right; }
+.tabla-metricas td { padding: 6px 0; border-bottom: 1px solid var(--linea);
+                     color: var(--apagado); }
+.tabla-metricas tr:last-child td { border-bottom: 0; }
+.tabla-metricas td:first-child {
+  display: flex; align-items: center; gap: 6px; color: var(--tinta);
+}
+.tabla-metricas td:first-child i { width: 8px; height: 8px; border-radius: 50%;
+                                   flex: none; }
+.tabla-metricas .num, .tabla-metricas .num-chico {
+  text-align: right; font-variant-numeric: tabular-nums;
+  padding-left: 14px; white-space: nowrap;
+}
+.tabla-metricas .num b { color: var(--tinta); font-weight: 600; }
+.tabla-metricas .num-chico { font-size: 11.5px; padding-left: 5px; }
+.tabla-metricas em { font-style: normal; font-size: 11.5px; margin-left: 5px; }
+.tabla-metricas em.caro { color: var(--caro); }
+.tabla-metricas em.barato { color: var(--barato); }
+
+/* En el teléfono no entran siete columnas. Se cae la fecha del mínimo, que es
+   el dato más prescindible, y la mediana —que se puede leer en el gráfico— y
+   lo que queda sigue contestando lo mismo: cuánto cuesta hoy, cuánto llegó a
+   bajar y cuán seguido está en promo. */
+@media (max-width: 560px) {
+  .tabla-metricas { font-size: 12.5px; }
+  .tabla-metricas th:nth-child(3), .tabla-metricas td:nth-child(3),
+  .tabla-metricas th:nth-child(5), .tabla-metricas td:nth-child(5) {
+    display: none;
+  }
+  .tabla-metricas .num { padding-left: 8px; }
+  .globo { font-size: 11.5px; }
+}
 
 .cambios { margin: 12px 0 0; font-size: 13px; color: var(--apagado); }
 .cambios ul { margin: 6px 0 0; padding-left: 18px; }
