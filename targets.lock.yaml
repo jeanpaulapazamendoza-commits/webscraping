@@ -1,6 +1,11 @@
-generado: '2026-10-12T15:47:01'
+generado: '2026-10-12T23:32:12'
 nota: 'Generado por descubrir.py desde categorias.yaml. No editar a mano. El orden importa: scrape_all se queda con la primera aparición de cada producto y los nodos finos van primero.'
 targets:
+- supermercado: metro
+  nivel: 3
+  familia: chorizos
+  slug: chorizos
+  url: https://www.metro.pe/embutidos-y-fiambres/embutidos/chorizos
 - supermercado: metro
   nivel: 2
   familia: cerdo
@@ -36,6 +41,11 @@ targets:
   familia: verduras
   slug: verduras
   url: https://www.metro.pe/frutas-y-verduras/verduras
+- supermercado: plazavea
+  nivel: 3
+  familia: chorizos
+  slug: chorizos
+  url: https://www.plazavea.com.pe/quesos-y-fiambres/embutidos/chorizos
 - supermercado: plazavea
   nivel: 2
   familia: cerdo
@@ -93,6 +103,36 @@ targets:
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG17682/Cortes-Parrilleros
 - supermercado: tottus
   nivel: 3
+  familia: chorizos
+  slug: chorizos-especiales-catg34908
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG34908/Especiales
+- supermercado: tottus
+  nivel: 3
+  familia: chorizos
+  slug: chorizos-especiales-catg36873
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG36873/Especiales
+- supermercado: tottus
+  nivel: 3
+  familia: chorizos
+  slug: chorizos-especiales-catg36874
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG36874/Chorizos-Especiales
+- supermercado: tottus
+  nivel: 3
+  familia: chorizos
+  slug: chorizos-parrilleros-catg17696
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG17696/Chorizos-Parrilleros
+- supermercado: tottus
+  nivel: 3
+  familia: chorizos
+  slug: chorizos-parrilleros-catg34907
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG34907/Parrilleros
+- supermercado: tottus
+  nivel: 3
+  familia: chorizos
+  slug: chorizos-parrilleros-catg36872
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG36872/Parrilleros
+- supermercado: tottus
+  nivel: 3
   familia: frutas
   slug: duraznos-sandias-melones-y-mangos
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG16995/Duraznos--Sandias--Melones-y-Mangos
@@ -121,16 +161,6 @@ targets:
   familia: frutas
   slug: platanos-papayas-pinas-y-tropicales
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG16986/Platanos--Papayas--Pinas-y-Tropicales
-- supermercado: tottus
-  nivel: 3
-  familia: parrilla
-  slug: chorizos-especiales
-  url: https://www.tottus.com.pe/tottus-pe/lista/CATG36874/Chorizos-Especiales
-- supermercado: tottus
-  nivel: 3
-  familia: parrilla
-  slug: chorizos-parrilleros
-  url: https://www.tottus.com.pe/tottus-pe/lista/CATG17696/Chorizos-Parrilleros
 - supermercado: tottus
   nivel: 3
   familia: parrilla
@@ -258,6 +288,16 @@ targets:
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG16920/Carne-de-Cerdo
 - supermercado: tottus
   nivel: 2
+  familia: chorizos
+  slug: huevos-y-fiambres-chorizos-catg16774
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16774/Chorizos
+- supermercado: tottus
+  nivel: 2
+  familia: chorizos
+  slug: mundo-parrillero-chorizos
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16959/Chorizos
+- supermercado: tottus
+  nivel: 2
   familia: frutas
   slug: frutas-citricas
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG16994/Limones--Naranjas-y-Mandarinas
@@ -281,11 +321,6 @@ targets:
   familia: parrilla
   slug: arma-tu-parrilla
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG16923/Arma-Tu-Parrilla
-- supermercado: tottus
-  nivel: 2
-  familia: parrilla
-  slug: para-la-parrilla
-  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16774/Chorizos
 - supermercado: tottus
   nivel: 2
   familia: pavo
@@ -336,6 +371,21 @@ targets:
   familia: verduras
   slug: tuberculos
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG16977/Papas-y-Camotes
+- supermercado: tottus
+  nivel: 1
+  familia: frutas
+  slug: catg16050-frutas-y-verduras
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16050/Frutas-y-Verduras
+- supermercado: tottus
+  nivel: 1
+  familia: otros
+  slug: catg16076-carnes
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16076/Carnes
+- supermercado: wong
+  nivel: 3
+  familia: chorizos
+  slug: chorizos
+  url: https://www.wong.pe/embutidos-y-fiambres/embutidos/chorizos
 - supermercado: wong
   nivel: 2
   familia: cerdo

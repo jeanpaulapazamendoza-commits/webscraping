@@ -169,6 +169,17 @@ def coincide(texto: str, termino: str) -> bool:
     return any(palabra.startswith(t) for palabra in texto.split("-"))
 
 
+def ambiguo(texto: str, reglas: dict) -> bool:
+    """Si un nombre nombra más de una familia y por lo tanto no decide nada.
+
+    "Frutas y Verduras" es el caso: hereda a todo lo que cuelga de él la
+    primera de las dos que aparezca en las reglas, que es puro azar del orden.
+    """
+    cuantas = sum(1 for terminos in reglas.values()
+                  if any(coincide(texto, t) for t in terminos))
+    return cuantas > 1
+
+
 def familia_de(slug_cat: str, nombre: str, reglas: dict, heredadas: dict,
                padres=(), departamentos=()) -> str:
     """La familia de una categoría.
@@ -181,10 +192,13 @@ def familia_de(slug_cat: str, nombre: str, reglas: dict, heredadas: dict,
     qué son por sí solas — "Cortes Caseros" o "Elaborados" solo se entienden
     colgando de "Carne de Res" o "Carne de Cerdo".
 
-    Los departamentos declarados no cuentan como padre: son justamente lo que
-    pedimos recorrer, así que no distinguen nada de lo que hay dentro. Sin esta
-    salvedad "Ensaladas" heredaba de "Frutas y Verduras" y quedaba como fruta,
-    porque `frutas` es la primera regla que ese nombre hace coincidir.
+    De los padres se descarta el que sea AMBIGUO, no todo departamento
+    declarado. "Frutas y Verduras" nombra dos familias a la vez, así que
+    heredar de él convertía a "Ensaladas" en fruta por el solo hecho de que
+    `frutas` es la primera regla que ese nombre reconoce. Pero descartar todo
+    departamento rompía el caso contrario: con "Chorizos" declarado como rama
+    propia, quitarlo dejaba a sus hijos heredando de "Huevos y Fiambres" y los
+    volvía pollo. Se descarta por ambiguo, que es el problema real.
     """
     if slug_cat in heredadas:
         return heredadas[slug_cat]
@@ -192,7 +206,7 @@ def familia_de(slug_cat: str, nombre: str, reglas: dict, heredadas: dict,
     # kebab-case y `coincide` puede partirla en palabras.
     propio = f"{slug_cat}-{slug(nombre)}"
     heredado = "-".join(slug(p) for p in padres
-                        if p and slug(p) not in set(departamentos))
+                        if p and not ambiguo(slug(p), reglas))
     # Primero el nombre propio y recién después el del padre: si la categoría
     # se llama "Cerdo" dentro de "Carnes", manda lo que dice ella.
     for texto in (propio, heredado):
@@ -221,13 +235,25 @@ def resolver(declaracion: dict, sesion) -> list:
     nivel_vtex = declaracion.get("nivel_vtex", 2)
     for cadena, host in HOSTS_VTEX.items():
         nodos = arbol_vtex(sesion, host)
+        # El nivel se cuenta DESDE el departamento declarado, no desde la raíz
+        # del catálogo. Con `carnes-aves-y-pescados`, que está en el nivel 1, y
+        # nivel_vtex 2, el objetivo sigue siendo el nivel 2 de siempre. Pero así
+        # también se puede declarar una rama profunda como
+        # `embutidos-y-fiambres/embutidos/chorizos` y que se pida ella misma, que
+        # con un nivel absoluto quedaba fuera por estar en el 3.
+        def objetivo(n):
+            for d in deps_vtex:
+                if n["ruta"] == d or n["ruta"].startswith(d + "/"):
+                    return d.count("/") + nivel_vtex
+            return None
+
         bajo = [n for n in nodos
-                if any(n["ruta"] == d or n["ruta"].startswith(d + "/") for d in deps_vtex)
-                and not excluido(n, excluir)]
+                if objetivo(n) is not None and not excluido(n, excluir)]
         # Un nodo del nivel pedido, o una hoja más arriba: si una rama termina
         # antes, igual hay que pedirla o se pierde entera.
         elegidos = [n for n in bajo
-                    if n["nivel"] == nivel_vtex or (n["hoja"] and n["nivel"] < nivel_vtex)]
+                    if n["nivel"] == objetivo(n)
+                    or (n["hoja"] and n["nivel"] < objetivo(n))]
         for ruta in podar([n["ruta"] for n in elegidos]):
             nodo = next(n for n in bajo if n["ruta"] == ruta)
             s = ruta.split("/")[-1]
@@ -253,7 +279,10 @@ def resolver(declaracion: dict, sesion) -> list:
     for n in nodos:
         if excluido(n, excluir):
             continue
-        padres = [slug(p) for p in n.get("padres", []) if p]
+        # El propio nodo cuenta, no solo sus hijos: en Tottus cada nodo lista
+        # únicamente sus productos, así que declarar "Chorizos" y quedarse solo
+        # con "Especiales" y "Parrilleros" perdería lo que cuelga directo de él.
+        padres = [slug(p) for p in n.get("padres", []) if p] + [slug(n["nombre"])]
         if not any(d in padres for d in deps_tottus):
             continue
         cid = n["ruta"].split("/")[0]

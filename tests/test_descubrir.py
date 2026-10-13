@@ -31,8 +31,8 @@ sys.path.insert(0, str(RAIZ))
 import yaml
 
 import descubrir
-from descubrir import (coincide, excluido, familia_de, podar, resolver,
-                       revisar_cambio)
+from descubrir import (ambiguo, coincide, excluido, familia_de, podar,
+                       resolver, revisar_cambio)
 from scrape_all import sin_repetidos
 
 REGLAS = yaml.safe_load((RAIZ / "categorias.yaml").read_text(encoding="utf-8"))["familias"]
@@ -54,6 +54,12 @@ ARBOL_VTEX = [
     nodo_vtex("mascotas", "Mascotas"),
     nodo_vtex("mascotas/perros", "Perros", hoja=True),
     nodo_vtex("abarrotes", "Abarrotes", hoja=True),
+    # Una rama profunda, como los chorizos: cuelgan de fiambres y no de carnes.
+    nodo_vtex("quesos-y-fiambres", "Quesos y Fiambres"),
+    nodo_vtex("quesos-y-fiambres/embutidos", "Embutidos"),
+    nodo_vtex("quesos-y-fiambres/embutidos/chorizos", "Chorizos", hoja=True),
+    nodo_vtex("quesos-y-fiambres/embutidos/salchichas", "Salchichas", hoja=True),
+    nodo_vtex("quesos-y-fiambres/quesos-duros", "Quesos Duros", hoja=True),
 ]
 
 
@@ -77,11 +83,16 @@ ARBOL_TOTTUS = [
     nodo_tottus("CATG8", "Elaborados", ["Carnes", "Cerdo"]),
     nodo_tottus("CATG9", "Bazar", ["Carnes"]),
     nodo_tottus("CATG10", "Galletas", ["Abarrotes"]),
+    # "Chorizos" cuelga de un departamento que no se pide, y tiene productos
+    # propios además de los de sus hijos.
+    nodo_tottus("CATG11", "Chorizos", ["Huevos y Fiambres"]),
+    nodo_tottus("CATG12", "Parrilleros", ["Huevos y Fiambres", "Chorizos"]),
 ]
 
 DECLARACION = {
-    "departamentos": {"vtex": ["carnes-aves-y-pescados", "frutas-y-verduras"],
-                      "tottus": ["Carnes", "Frutas y Verduras"]},
+    "departamentos": {"vtex": ["carnes-aves-y-pescados", "frutas-y-verduras",
+                               "quesos-y-fiambres/embutidos/chorizos"],
+                      "tottus": ["Carnes", "Frutas y Verduras", "Chorizos"]},
     "nivel_vtex": 2,
     "excluir": ["mascotas", "bazar"],
     "familias": REGLAS,
@@ -178,7 +189,7 @@ def test_vtex_se_pide_por_nivel_y_tottus_completo():
     incluye los descendientes y la de Tottus no."""
     targets = resolver_con_arbol()
     vtex = sorted(t["slug"] for t in targets if t["supermercado"] == "plazavea")
-    assert vtex == ["ensaladas", "pollo", "res"], vtex
+    assert vtex == ["chorizos", "ensaladas", "pollo", "res"], vtex
     assert "pollo-entero" not in vtex, "el nivel 3 ya viene dentro del nivel 2"
 
     tottus = {t["slug"] for t in targets if t["supermercado"] == "tottus"}
@@ -296,6 +307,54 @@ def test_la_guarda_avisa_cuando_una_cadena_desaparece():
     antes = targets_de("wong", 10) + targets_de("metro", 5)
     problemas = revisar_cambio(targets_de("metro", 5), antes)
     assert len(problemas) == 1 and "wong" in problemas[0]
+
+
+# ── ramas declaradas en profundidad ──────────────────────────────────────────
+
+def test_una_rama_profunda_se_pide_tal_cual():
+    """Los chorizos no están en carnes sino colgando de fiambres, y pedir el
+    departamento entero traía 1.607 productos de queso y jamón. Declarando la
+    rama exacta el nivel se cuenta desde ahí, no desde la raíz."""
+    vtex = [t for t in resolver_con_arbol() if t["supermercado"] == "wong"]
+    slugs = {t["slug"] for t in vtex}
+    assert "chorizos" in slugs
+    assert "salchichas" not in slugs, "solo se pidió la rama de chorizos"
+    assert "quesos-duros" not in slugs, "el resto del departamento queda afuera"
+
+
+def test_la_rama_profunda_no_cambia_el_nivel_de_las_otras():
+    """El nivel relativo tiene que dar lo mismo que antes para un departamento
+    declarado en el nivel 1."""
+    vtex = sorted(t["slug"] for t in resolver_con_arbol()
+                  if t["supermercado"] == "metro")
+    assert "pollo" in vtex and "pollo-entero" not in vtex
+
+
+def test_en_tottus_el_nodo_declarado_cuenta_ademas_de_sus_hijos():
+    """Cada nodo de Tottus lista solo sus propios productos: quedarse con los
+    hijos de "Chorizos" perdería lo que cuelga directo de él."""
+    slugs = {t["slug"] for t in resolver_con_arbol() if t["supermercado"] == "tottus"}
+    assert "chorizos" in slugs, "falta el nodo declarado"
+    assert "parrilleros" in slugs, "falta su hijo"
+
+
+def test_los_chorizos_quedan_en_su_propia_familia():
+    """Sin esto caían en `parrilla`, mezclados con hamburguesas y anticuchos,
+    y la sección pedida no se podía filtrar."""
+    for t in resolver_con_arbol():
+        if "chorizo" in t["slug"] or t["slug"] == "parrilleros":
+            assert t["familia"] == "chorizos", t
+
+
+def test_un_padre_ambiguo_no_decide_pero_uno_claro_si():
+    """La regla fina: se descarta el padre que nombra dos familias a la vez
+    --"Frutas y Verduras"--, no todo departamento declarado. Descartarlos todos
+    dejaba a los hijos de "Chorizos" heredando de "Huevos y Fiambres", que los
+    volvía pollo."""
+    assert ambiguo("frutas-y-verduras", REGLAS)
+    assert not ambiguo("chorizos", REGLAS)
+    assert familia_de("parrilleros", "Parrilleros", REGLAS, {},
+                      ["Huevos y Fiambres", "Chorizos"]) == "chorizos"
 
 
 # ── la declaración de verdad ─────────────────────────────────────────────────

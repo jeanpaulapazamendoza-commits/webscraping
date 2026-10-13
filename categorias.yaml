@@ -11,13 +11,26 @@
 # Los departamentos a seguir, con el nombre que usa cada cadena en su ruta.
 # VTEX (plazavea, wong, metro) comparte los mismos; Tottus usa IDs CATG, así
 # que se nombra por el título del menú.
+# Una rama puede declararse a cualquier profundidad: el nivel de abajo se
+# cuenta desde acá, no desde la raíz del catálogo. Los chorizos no están en
+# carnes sino colgando de fiambres, y el departamento entero traía 1.607
+# productos de queso y jamón que nadie pidió; la rama exacta trae 231.
 departamentos:
   vtex:
     - carnes-aves-y-pescados
     - frutas-y-verduras
+    # El mismo producto, dos nombres de departamento: Wong y Metro lo llaman
+    # embutidos-y-fiambres y Plaza Vea quesos-y-fiambres. Se declaran los dos y
+    # cada cadena resuelve el que tiene.
+    - embutidos-y-fiambres/embutidos/chorizos
+    - quesos-y-fiambres/embutidos/chorizos
   tottus:
     - Carnes
     - Frutas y Verduras
+    # En Tottus "Chorizos" cuelga de Huevos y Fiambres y también de Mundo
+    # Parrillero. Declarando el nombre entran los dos, y el deduplicado por
+    # producto_id se encarga de lo que esté en los dos lados.
+    - Chorizos
 
 # Hasta qué profundidad del árbol se piden los nodos.
 #
@@ -55,13 +68,21 @@ excluir:
 #
 # Las categorías que ya estaban en targets.yaml conservan la familia que tenían
 # asignada a mano: estas reglas solo deciden sobre las nuevas.
+# El orden importa: gana la primera familia cuyo término aparezca. `chorizos`
+# va antes que `parrilla` a propósito, porque si no un "Chorizo Parrillero"
+# caería en parrilla y la sección pedida quedaría mezclada con hamburguesas y
+# anticuchos.
 familias:
+  chorizos: [chorizo]
   res:      [res, bisteck, lomo, asado, churrasco, malaya, cuadril, vacuno]
   pollo:    [pollo, gallina, aves-y-huevos, huevo]
   cerdo:    [cerdo, chuleta, panceta, bondiola, jamon]
   pavo:     [pavo, pavita]
   pescados: [pescado, marisco, atun, salmon]
-  parrilla: [parrilla, hamburguesa, anticucho, chorizo, embutido, apanado,
+  # Sin `chorizo`: tiene familia propia arriba. Dejarlo en los dos hacía que
+  # "Chorizos" nombrara dos familias y la regla de ambigüedad lo descartara
+  # como padre, que es justo lo contrario de lo que se quiere.
+  parrilla: [parrilla, hamburguesa, anticucho, embutido, apanado,
              salchicha, hot-dog]
   frutas:   [fruta, manzana, palta, platano, uva, naranja, mandarina, fresa,
              melon, sandia, pina, papaya, mango, durazno, pera, limon,
