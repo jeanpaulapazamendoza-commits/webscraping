@@ -123,6 +123,25 @@
 .terminos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px;
             align-items: center; }
 .chips-vacio { font-size: 12px; color: var(--apagado); }
+
+/* O contra Y. Aparece recién con dos términos de texto: con uno solo los dos
+   modos dan lo mismo. */
+.modo-terminos {
+  display: inline-flex; align-items: center; gap: 4px; margin-right: 4px;
+  padding: 2px 4px 2px 9px; border-radius: 999px;
+  border: 1px dashed var(--linea-fuerte);
+}
+.modo-txt { font-size: 11.5px; color: var(--apagado); }
+.modo-op {
+  font: inherit; font-size: 11.5px; cursor: pointer; padding: 3px 9px;
+  border-radius: 999px; color: var(--apagado);
+  background: transparent; border: 1px solid transparent;
+}
+.modo-op:hover { color: var(--tinta); }
+.modo-op.activo {
+  color: var(--tinta); border-color: var(--acento); font-weight: 600;
+  background: color-mix(in srgb, var(--acento) 16%, transparent);
+}
 .termino {
   display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
   padding: 4px 5px 4px 10px; border-radius: 999px;
@@ -306,6 +325,38 @@
 .panel-tabla .baja { color: var(--barato); }
 .panel-mas { margin: 10px 0 0; font-size: 12px; color: var(--apagado); }
 
+/* El enlace a la ficha real: el tablero encuentra el producto, la compra se
+   decide mirando la pagina de la cadena. */
+.panel-tabla th.ir, .panel-tabla td.ir { width: 28px; text-align: right; }
+.ir-tienda {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 6px; text-decoration: none;
+  font-size: 13px; color: var(--apagado); border: 1px solid transparent;
+}
+.ir-tienda:hover {
+  color: var(--acento); border-color: var(--linea); background: var(--superficie-2);
+}
+
+.enlaces { display: flex; flex-direction: column; gap: 4px; }
+.enlace-fila {
+  display: flex; align-items: center; gap: 9px; text-decoration: none;
+  padding: 8px 10px; border-radius: 8px; font-size: 13px;
+  color: var(--tinta); background: var(--superficie-2);
+  border: 1px solid var(--linea);
+}
+.enlace-fila:hover { border-color: var(--acento); }
+.enlace-fila.sin-enlace { opacity: .6; cursor: default; }
+.enlace-fila i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.enlace-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.enlace-txt b { font-size: 11px; font-weight: 600; color: var(--apagado); }
+.enlace-txt span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.enlace-precio {
+  font-variant-numeric: tabular-nums; font-weight: 600; flex: none;
+}
+.enlace-ir { font-size: 12px; color: var(--acento); flex: none; white-space: nowrap; }
+
 @media (max-width: 560px) {
   .paneles { grid-template-columns: 1fr; }
   /* Dos tarjetas por fila: con una sola, cinco indicadores son cinco pantallas
@@ -317,6 +368,7 @@
      producto importa más que un estadístico de más. */
   .panel-tabla th:nth-child(5), .panel-tabla td:nth-child(5),
   .panel-tabla th:nth-child(6), .panel-tabla td:nth-child(6) { display: none; }
+  .enlace-precio { display: none; }
   .barra-fila { grid-template-columns: minmax(74px, 1fr) 1.4fr auto; font-size: 12px; }
 }
 

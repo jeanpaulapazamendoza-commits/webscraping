@@ -321,6 +321,15 @@ Un término puede ser una frase o **un producto concreto**, elegido de las
 sugerencias que aparecen al escribir: eso lo agrega al filtro y al gráfico de
 comparación de una sola vez.
 
+Con dos o más términos aparece el modo: **cualquiera** junta canastas distintas
+(`pollo fresco` + `bife angosto` + `picaña`, para exportarlas de una) y **todos**
+afina una sola búsqueda (`pollo` + `tottus` pasa de 707 productos a 23). Los
+productos fijados entran siempre, en los dos modos.
+
+Cada producto lleva el enlace a su ficha en la web de la cadena: en la tabla,
+en el bloque "Ir a la tienda" con lo que se está comparando, y en Explorar uno
+por cada cadena del grupo.
+
 Los colores de cadena no se eligieron a ojo: los anteriores reprobaban dos de
 las seis comprobaciones del validador de paletas —Wong y Metro a ΔE 5,5 para
 daltonismo deutan, Tottus y Plaza Vea a 12,0 *con visión normal*, bajo el piso

@@ -24,6 +24,10 @@ const PF = {
   // "pollo fresco", "bife angosto" y "picaña" entran los tres grupos y se
   // exportan juntos, que con un único campo de texto era imposible.
   terminos: [],
+  // 'o' (alcanza con cumplir uno) o 'y' (hay que cumplirlos todos). Con O se
+  // juntan canastas distintas --pollo fresco, bife angosto, picaña-- para
+  // exportarlas de una; con Y se afina una sola búsqueda --"pollo" y "tottus"--.
+  modo: 'o',
   cadenas: new Set(),
   familias: new Set(),
   categorias: new Set(),
@@ -122,10 +126,26 @@ function productosDelPanel() {
     if (PF.marcas.size && !PF.marcas.has(p.marca || '—')) return false;
     if (PF.soloDescuento && !p.descuento) return false;
     if (PF.precioMax != null && (p.precio == null || p.precio > PF.precioMax)) return false;
-    // Entre términos vale O: alcanza con cumplir uno.
-    if (PF.terminos.length && !PF.terminos.some((x) => cumple(p, x))) return false;
+    if (PF.terminos.length && !pasaLosTerminos(p)) return false;
     return true;
   });
+}
+
+/** Si un producto pasa la lista de términos, según el modo.
+ *
+ *  Los productos fijados --los que se eligieron uno por uno de las
+ *  sugerencias-- entran siempre, en los dos modos. No son una condición de
+ *  búsqueda sino una elección explícita, y con Y pedir que un producto sea a la
+ *  vez otro producto no deja pasar nada.
+ */
+function pasaLosTerminos(p) {
+  const fijados = PF.terminos.filter((x) => x.t === 'prod');
+  if (fijados.some((x) => x.id === p.id)) return true;
+  const texto = PF.terminos.filter((x) => x.t === 'texto');
+  if (!texto.length) return false;
+  return PF.modo === 'y'
+    ? texto.every((x) => cumple(p, x))
+    : texto.some((x) => cumple(p, x));
 }
 
 /** Cuántos productos trae cada término por sí solo, para mostrarlo en su chip. */
@@ -560,6 +580,27 @@ function pintarChips() {
       'Sin términos: entran todos los productos. Escribí uno y agregalo.'));
     return;
   }
+
+  // El modo se ofrece recién con dos términos de texto: con uno solo, O e Y
+  // dan lo mismo y el control sería una pregunta sin consecuencia.
+  if (PF.terminos.filter((x) => x.t === 'texto').length > 1) {
+    const modo = el('span', 'modo-terminos');
+    modo.append(el('span', 'modo-txt', 'Entra lo que cumpla'));
+    [['cualquiera', 'o'], ['todos', 'y']].forEach(([etq, valor]) => {
+      const b = el('button', 'modo-op' + (PF.modo === valor ? ' activo' : ''));
+      b.type = 'button';
+      b.textContent = etq;
+      b.title = valor === 'o'
+        ? 'Cualquiera: junta canastas distintas (pollo fresco, bife angosto…)'
+        : 'Todos: afina una sola búsqueda (pollo + tottus)';
+      b.addEventListener('click', () => {
+        PF.modo = valor;
+        pintarPanel({ conservarFiltros: true });
+      });
+      modo.append(b);
+    });
+    nodoChips.append(modo);
+  }
   PF.terminos.forEach((x, i) => {
     const c = el('span', `termino ${x.t === 'prod' ? 'es-prod' : ''}`);
     if (x.t === 'prod') {
@@ -601,8 +642,7 @@ function buscador() {
   if (nodoBuscador) { pintarChips(); return nodoBuscador; }
 
   nodoBuscador = el('div', 'campo campo-ancho buscador-terminos');
-  nodoBuscador.append(el('label', null,
-    'Términos de búsqueda — se suman, entra lo que cumpla cualquiera'));
+  nodoBuscador.append(el('label', null, 'Términos de búsqueda'));
 
   const fila = el('div', 'buscador-fila');
   nodoEntrada = el('input');
@@ -735,7 +775,8 @@ function escribirGuardadas(obj) {
 }
 function instantanea() {
   return {
-    terminos: PF.terminos, dias: PF.dias, soloDescuento: PF.soloDescuento,
+    terminos: PF.terminos, modo: PF.modo, dias: PF.dias,
+    soloDescuento: PF.soloDescuento,
     precioMax: PF.precioMax, seleccion: [...PF.seleccion],
     cadenas: [...PF.cadenas], familias: [...PF.familias],
     categorias: [...PF.categorias], marcas: [...PF.marcas],
@@ -747,6 +788,7 @@ function aplicar(snap) {
   PF.terminos = (snap.terminos || []).map((x) => (x.t === 'prod' ? x : {
     ...x, palabras: normalizar(x.v).split(' ').filter(Boolean),
   }));
+  PF.modo = snap.modo === 'y' ? 'y' : 'o';
   PF.dias = snap.dias || 90;
   PF.soloDescuento = !!snap.soloDescuento;
   PF.precioMax = snap.precioMax ?? null;
@@ -862,6 +904,9 @@ function pintarGraficos(c) {
                    titulo: 'Histórico de los productos seleccionados' })));
   }
 
+  const enlaces = pintarEnlaces(c);
+  if (enlaces) bloques.push(enlaces);
+
   cont.replaceChildren(
     ...bloques,
     bloque('Precio mediano por cadena',
@@ -878,7 +923,13 @@ function pintarGraficos(c) {
       `Sobre ${c.barato.grupos.toLocaleString('es-PE')} grupos de productos parecidos `
       + 'presentes en más de una cadena, día por día. Cuando dos cadenas tienen '
       + 'el mismo precio no gana ninguna: eso es el empate.',
-      grafBarras({
+      // Sin grupos presentes en más de una cadena no hay nada que comparar
+      // --pasa al filtrar por una sola cadena--, y una barra de "Empate 0%"
+      // dice menos que decirlo.
+      !c.barato.grupos ? el('p', 'graf-vacio',
+        'El filtro no deja productos parecidos en más de una cadena, así que no '
+        + 'hay comparación posible.')
+      : grafBarras({
         // El empate va como una barra más, si no las otras suman 42% y parece
         // que falta algo. Que dos cadenas tengan el mismo precio la mitad de
         // los días es un resultado, no un hueco.
@@ -895,6 +946,56 @@ function pintarGraficos(c) {
   );
 }
 
+/** El enlace a la ficha del producto en la web de la cadena.
+ *
+ *  Va en cada fila y no solo en un lugar: el tablero sirve para encontrar el
+ *  producto, pero la decisión de compra se toma mirando la ficha real --el
+ *  gramaje, la foto, si hay stock--, y hasta ahora había que buscarlo a mano.
+ */
+function celdaEnlace(p) {
+  const td = el('td', 'ir');
+  if (!p.url) return td;
+  const a = el('a', 'ir-tienda', '↗');
+  a.href = p.url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.title = `Abrir en ${CADENAS[p.cadena]?.nombre || p.cadena}`;
+  a.setAttribute('aria-label', `Abrir ${p.nombre} en ${CADENAS[p.cadena]?.nombre || p.cadena}`);
+  td.append(a);
+  return td;
+}
+
+/** Los enlaces de lo que se está comparando, juntos y con su precio. */
+function pintarEnlaces(c) {
+  const porId = new Map(estado.indice.map((p) => [p.id, p]));
+  const elegidos = [...PF.seleccion].map((id) => porId.get(id)).filter(Boolean);
+  if (!elegidos.length) return null;
+  const lista = el('div', 'enlaces');
+  elegidos.forEach((p) => {
+    const fila = el('a', 'enlace-fila');
+    if (p.url) {
+      fila.href = p.url;
+      fila.target = '_blank';
+      fila.rel = 'noopener noreferrer';
+    } else {
+      fila.classList.add('sin-enlace');
+    }
+    const i = el('i');
+    i.style.background = CADENAS[p.cadena]?.color || 'var(--apagado)';
+    const izq = el('span', 'enlace-txt');
+    izq.append(el('b', null, CADENAS[p.cadena]?.nombre || p.cadena),
+               el('span', null, p.nombre));
+    fila.append(i, izq,
+      el('span', 'enlace-precio', `S/ ${soles(p.precio)}`),
+      el('span', 'enlace-ir', p.url ? 'Abrir ↗' : 'sin enlace'));
+    lista.append(fila);
+  });
+  return bloque('Ir a la tienda',
+    'Los productos que estás comparando, con el enlace a su ficha en la web de '
+    + 'cada cadena. Abren en una pestaña nueva.',
+    lista);
+}
+
 function pintarTabla(c) {
   const tabla = document.getElementById('panel-tabla');
   const cab = el('tr');
@@ -903,7 +1004,7 @@ function pintarTabla(c) {
   // recordar el código de colores para distinguirlos.
   [['', 'tilde'], ['Cadena', 'cad'], ['Producto', ''], ['Hoy', 'num'],
     ['Mediana', 'num'], ['Mínimo', 'num'], ['Máximo', 'num'],
-    ['En promo', 'num'], ['Período', 'num']]
+    ['En promo', 'num'], ['Período', 'num'], ['', 'ir']]
     .forEach(([t, cl]) => cab.append(el('th', cl, t)));
   const cuerpo = el('tbody');
   const orden = [...c.filas].sort((a, b) => (b.variacion ?? 0) - (a.variacion ?? 0));
@@ -941,7 +1042,7 @@ function pintarTabla(c) {
         `${f.variacion > 0 ? '+' : ''}${(f.variacion * 100).toFixed(1)}%`);
       v.append(e);
     } else v.textContent = '—';
-    tr.append(v);
+    tr.append(v, celdaEnlace(f.p));
     cuerpo.append(tr);
   });
   const cabecera = el('thead');

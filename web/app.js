@@ -695,11 +695,24 @@ function pintarDetalle(grupo) {
     caja.append(c);
   }
 
-  const conUrl = grupo.items.find((p) => p.url);
-  if (conUrl) {
-    const a = el('a', 'ver-producto', 'Ver en la web de la cadena →');
-    a.href = conUrl.url; a.target = '_blank'; a.rel = 'noopener';
-    caja.append(a);
+  // Un enlace por producto y no uno solo para el grupo: el grupo junta
+  // artículos de hasta cuatro cadenas, y el enlace al primero no sirve para
+  // mirar la ficha de los otros, que es donde está el gramaje y la foto.
+  const conUrl = grupo.items.filter((p) => p.url);
+  if (conUrl.length) {
+    const tiendas = el('div', 'ver-tiendas');
+    tiendas.append(el('span', 'ver-tiendas-t', 'Ver en la web de la cadena:'));
+    conUrl.forEach((p) => {
+      const a = el('a', 'ver-producto');
+      const i = el('i');
+      i.style.background = CADENAS[p.cadena]?.color || 'var(--apagado)';
+      a.append(i, document.createTextNode(CADENAS[p.cadena]?.nombre || p.cadena),
+               el('span', 'ver-flecha', '↗'));
+      a.href = p.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.title = p.nombre;
+      tiendas.append(a);
+    });
+    caja.append(tiendas);
   }
   return caja;
 }
