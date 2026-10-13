@@ -1,14 +1,14 @@
 {
-  "generado": "2026-10-13T01:13:22",
-  "ultimo_dia": "2026-10-12",
-  "hora_de_la_foto": "15:35",
-  "dias_con_dato": 121,
+  "generado": "2026-10-13T01:25:55",
+  "ultimo_dia": "2026-10-13",
+  "hora_de_la_foto": "01:25",
+  "dias_con_dato": 122,
   "primer_dia": "2026-05-27",
-  "filas": 422392,
-  "productos": 4423,
-  "productos_ultimo_dia": 3665,
-  "productos_dia_anterior": 3714,
-  "atraso_dias": 1,
+  "filas": 426634,
+  "productos": 5056,
+  "productos_ultimo_dia": 4242,
+  "productos_dia_anterior": 3665,
+  "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
     "2026-06-05",
@@ -31,24 +31,43 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1168,
-      "categorias": 7
+      "productos": 1238,
+      "categorias": 63
     },
     "plazavea": {
-      "productos": 780,
-      "categorias": 40
+      "productos": 1030,
+      "categorias": 55
     },
     "tottus": {
-      "productos": 527,
-      "categorias": 22
+      "productos": 581,
+      "categorias": 47
     },
     "wong": {
-      "productos": 1190,
-      "categorias": 6
+      "productos": 1393,
+      "categorias": 64
     }
   },
   "problemas": [],
   "avisos": [
     "faltan 18 día(s) en el histórico"
-  ]
+  ],
+  "corrida": {
+    "targets": 84,
+    "exitosos": 84,
+    "fallidos": 0,
+    "salvados_a_reintento": 0,
+    "fallos": [],
+    "reintentos": [],
+    "etapas": [
+      {
+        "etapa": "Exportando a Google Sheets...",
+        "estado": "omitido",
+        "motivo": "No hay credenciales de Google: definí GOOGLE_CREDS_JSON/GOOGLE_CREDS_FILE (service account, buscado en 'service_account.json') o poné un GOOGLE_OAUTH_CLIENT_FILE (OAuth de usuario, buscado en 'oauth_client.json')"
+      },
+      {
+        "etapa": "Construyendo el JSON del frontend...",
+        "estado": "ok"
+      }
+    ]
+  }
 }
