@@ -1,0 +1,239 @@
+/* El panel. Hoja aparte de estilos.css: el buscador y el tablero son dos
+   vistas distintas y conviene poder tocar una sin leer la otra.
+
+   Usa los mismos tokens de color, así que el tema claro/oscuro sale gratis. */
+
+.vistas { display: flex; gap: 4px; margin: 14px auto 0; }
+.vistas .vista {
+  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  padding: 7px 16px; border-radius: 999px 999px 0 0;
+  color: var(--apagado); background: transparent;
+  border: 1px solid transparent; border-bottom: 0;
+}
+.vistas .vista:hover { color: var(--tinta); }
+.vistas .vista.activa {
+  color: var(--tinta); background: var(--superficie);
+  border-color: var(--linea);
+}
+
+/* ── filtros ─────────────────────────────────────────────────────────────── */
+
+.panel-filtros {
+  background: var(--superficie); border: 1px solid var(--linea);
+  border-radius: var(--radio); padding: 14px 15px; margin-top: 14px;
+}
+.panel-filtros-cab {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.panel-filtros-cab h2 {
+  margin: 0; font-size: 13px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--apagado);
+}
+.panel-filtros-acc { display: flex; gap: 6px; flex-wrap: wrap; }
+.panel-filtros-acc select,
+.panel-filtros-acc button {
+  font: inherit; font-size: 12.5px; padding: 5px 10px; cursor: pointer;
+  color: var(--tinta); background: var(--superficie-2);
+  border: 1px solid var(--linea); border-radius: 7px;
+}
+.panel-filtros-acc button:hover { border-color: var(--linea-fuerte); }
+
+.panel-campos {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.campo { min-width: 0; }
+.campo-ancho { grid-column: 1 / -1; }
+.campo > label {
+  display: block; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--apagado); margin-bottom: 6px;
+}
+.campo input[type="search"] {
+  width: 100%; font: inherit; font-size: 14px; padding: 8px 11px;
+  color: var(--tinta); background: var(--superficie-2);
+  border: 1px solid var(--linea); border-radius: 8px;
+}
+.campo-chips {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  max-height: 92px; overflow-y: auto;
+}
+.campo-chips .chip {
+  font: inherit; font-size: 12px; padding: 3px 9px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--apagado); background: var(--superficie-2);
+  border: 1px solid var(--linea); border-radius: 999px;
+}
+.campo-chips .chip:hover { color: var(--tinta); border-color: var(--linea-fuerte); }
+.campo-chips .chip.activo {
+  color: var(--tinta); border-color: var(--acento);
+  background: color-mix(in srgb, var(--acento) 14%, transparent);
+}
+.campo-chips .chip em {
+  font-style: normal; font-size: 10.5px; opacity: .65;
+  font-variant-numeric: tabular-nums;
+}
+.chip-num input {
+  width: 68px; font: inherit; font-size: 12px; padding: 1px 4px;
+  color: var(--tinta); background: transparent;
+  border: 0; border-bottom: 1px solid var(--linea-fuerte);
+}
+
+/* ── indicadores ─────────────────────────────────────────────────────────── */
+
+.kpis {
+  display: grid; gap: 10px; margin-top: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+}
+.kpi {
+  background: var(--superficie); border: 1px solid var(--linea);
+  border-radius: var(--radio); padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.kpi-t {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--apagado);
+}
+.kpi-v {
+  font-size: 25px; font-weight: 650; line-height: 1.15;
+  color: var(--tinta); font-variant-numeric: tabular-nums;
+}
+.kpi-v.sube { color: var(--caro); }
+.kpi-v.baja { color: var(--barato); }
+.kpi-n { font-size: 11.5px; color: var(--apagado); }
+
+/* ── gráficos ────────────────────────────────────────────────────────────── */
+
+.paneles {
+  display: grid; gap: 12px; margin-top: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+}
+.bloque {
+  background: var(--superficie); border: 1px solid var(--linea);
+  border-radius: var(--radio); padding: 14px 15px; min-width: 0;
+}
+.bloque-cab { margin-bottom: 10px; }
+.bloque-cab h3 { margin: 0; font-size: 14px; font-weight: 650; color: var(--tinta); }
+.bloque-cab p { margin: 3px 0 0; font-size: 12px; color: var(--apagado); }
+
+.graf { position: relative; }
+.graf-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.graf-eje { stroke: var(--linea-fuerte); stroke-width: 1; }
+.graf-grilla { stroke: var(--linea); stroke-width: 1; stroke-dasharray: 3 4; }
+.graf-eje-txt {
+  font-size: 10.5px; fill: var(--apagado); font-variant-numeric: tabular-nums;
+}
+.graf-etiqueta { font-size: 11px; font-weight: 600; }
+.graf-serie {
+  fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round;
+}
+.graf-guia { stroke: var(--linea-fuerte); stroke-width: 1; }
+/* Anillo del color del fondo: separa el punto de la línea que pasa por detrás. */
+.graf-punto { stroke: var(--superficie); stroke-width: 2; }
+.graf-vacio {
+  margin: 24px 0; text-align: center; font-size: 13px; color: var(--apagado);
+}
+
+.graf-globo {
+  position: absolute; top: 2px; transform: translateX(12px);
+  pointer-events: none; z-index: 3; min-width: 150px;
+  background: var(--superficie); border: 1px solid var(--linea-fuerte);
+  border-radius: 8px; padding: 8px 10px; font-size: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
+}
+.graf-globo.a-la-izquierda { transform: translateX(calc(-100% - 12px)); }
+.graf-globo b {
+  display: block; font-size: 11px; color: var(--apagado); margin-bottom: 4px;
+}
+.graf-globo span { display: flex; align-items: center; gap: 6px; line-height: 1.6; }
+.graf-globo i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.graf-globo .globo-n { flex: 1; color: var(--apagado); }
+.graf-globo span b {
+  display: inline; margin: 0; color: var(--tinta);
+  font-variant-numeric: tabular-nums;
+}
+
+.barras { display: flex; flex-direction: column; gap: 7px; }
+.barra-fila {
+  display: grid; grid-template-columns: minmax(90px, 1.3fr) 2fr auto;
+  align-items: center; gap: 9px; font-size: 12.5px;
+}
+.barra-etq {
+  display: flex; align-items: center; gap: 6px; color: var(--tinta);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.barra-etq i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.barra-pista { background: var(--superficie-2); border-radius: 4px; height: 13px; }
+.barra { display: block; height: 100%; border-radius: 4px; min-width: 2px; }
+.barra-val {
+  font-variant-numeric: tabular-nums; color: var(--apagado); white-space: nowrap;
+}
+.barra-val.sube { color: var(--caro); }
+.barra-val.baja { color: var(--barato); }
+
+/* ── tabla y exportación ─────────────────────────────────────────────────── */
+
+.panel-tabla-caja {
+  background: var(--superficie); border: 1px solid var(--linea);
+  border-radius: var(--radio); padding: 14px 15px; margin: 12px 0 28px;
+}
+.panel-tabla-cab {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.panel-tabla-cab h2 { margin: 0; font-size: 14px; font-weight: 650; color: var(--tinta); }
+.boton-csv {
+  font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 13px;
+  cursor: pointer; color: #fff; background: var(--acento);
+  border: 1px solid var(--acento); border-radius: 7px;
+}
+.boton-csv:hover { filter: brightness(1.08); }
+.panel-tabla-scroll { overflow-x: auto; }
+.panel-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.panel-tabla th {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--apagado); text-align: left;
+  padding: 0 0 6px; border-bottom: 1px solid var(--linea); white-space: nowrap;
+}
+.panel-tabla th.num { text-align: right; }
+.panel-tabla td {
+  padding: 7px 0; border-bottom: 1px solid var(--linea); color: var(--apagado);
+}
+/* La celda del producto lleva el punto de la cadena. Va por clase y no por
+   :first-child, que desde que hay columna de tilde apunta al checkbox. */
+.panel-tabla td.prod {
+  display: flex; align-items: center; gap: 7px; color: var(--tinta);
+}
+.panel-tabla td.prod i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.panel-tabla .tb-nombre {
+  max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.panel-tabla .marca-min {
+  font-style: normal; font-size: 10.5px; padding: 1px 6px; border-radius: 999px;
+  color: var(--barato); background: var(--barato-suave); flex: none;
+}
+.panel-tabla .num {
+  text-align: right; font-variant-numeric: tabular-nums;
+  padding-left: 14px; white-space: nowrap;
+}
+.panel-tabla .num b { font-weight: 600; }
+.panel-tabla .sube { color: var(--caro); }
+.panel-tabla .baja { color: var(--barato); }
+.panel-mas { margin: 10px 0 0; font-size: 12px; color: var(--apagado); }
+
+@media (max-width: 560px) {
+  .paneles { grid-template-columns: 1fr; }
+  /* Dos tarjetas por fila: con una sola, cinco indicadores son cinco pantallas
+     de scroll antes de llegar al primer gráfico. */
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .kpi { padding: 10px 11px; }
+  .kpi-v { font-size: 20px; }
+  .panel-tabla th:nth-child(4), .panel-tabla td:nth-child(4),
+  .panel-tabla th:nth-child(5), .panel-tabla td:nth-child(5) { display: none; }
+  .barra-fila { grid-template-columns: minmax(74px, 1fr) 1.4fr auto; font-size: 12px; }
+}
+
+/* La columna de tilde: elegir productos para compararlos arriba. */
+.panel-tabla th.tilde, .panel-tabla td.tilde { width: 26px; padding-right: 4px; }
+.panel-tabla td.tilde { display: table-cell; }
+.panel-tabla td.tilde input { cursor: pointer; accent-color: var(--acento); }

@@ -305,8 +305,21 @@ código de salida dictamina, no decide si se escribe.
 
 ## La web (Vercel)
 
-`web/` es un sitio estático sin build ni dependencias: tres archivos (HTML, CSS
-y JS) que leen los JSON que deja la corrida diaria en `web/datos/`. No hay
+`web/` es un sitio estático sin build ni dependencias: HTML, dos hojas de
+estilo y dos scripts que leen los JSON que deja la corrida diaria en
+`web/datos/`. Tiene dos vistas:
+
+- **Explorar** — buscador por palabra clave, comparación entre cadenas y el
+  histórico de cada grupo de productos parecidos.
+- **Panel** — el tablero: filtros combinables (texto, período, cadena, familia,
+  categoría, marca, solo con descuento, tope de precio), cinco indicadores,
+  cuatro gráficos y la tabla con exportación a CSV. Los filtros se pueden
+  guardar con un nombre y volver a aplicarlos.
+
+Los colores de cadena no se eligieron a ojo: los anteriores reprobaban dos de
+las seis comprobaciones del validador de paletas —Wong y Metro a ΔE 5,5 para
+daltonismo deutan, Tottus y Plaza Vea a 12,0 *con visión normal*, bajo el piso
+de 15—. Los actuales salen de Okabe-Ito y pasan las seis, en los dos temas. No hay
 backend, ni base de datos, ni funciones de servidor — el navegador baja 291 KB
 comprimidos y con eso tiene búsqueda, comparación entre cadenas y el evolutivo
 completo.

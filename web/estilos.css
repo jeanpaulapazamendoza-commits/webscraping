@@ -20,10 +20,17 @@
   --sombra: 0 1px 2px rgba(20,26,29,.05), 0 8px 24px -18px rgba(20,26,29,.35);
   --radio: 10px;
 
-  --tottus: #C2185B;
-  --wong: #8E24AA;
-  --metro: #0277BD;
-  --plazavea: #D84315;
+  /* Los colores de cadena son identidad: cada una tiene el suyo y no rota
+     nunca segun cuantas series haya en pantalla. No se eligieron a ojo. Los
+     anteriores reprobaban dos de las seis comprobaciones del validador de
+     paletas: Wong y Metro quedaban a dE 5,5 para daltonismo deutan, y Tottus
+     con Plaza Vea a 12,0 INCLUSO CON VISION NORMAL, por debajo del piso de 15.
+     Estos salen de Okabe-Ito, construida para daltonismo, y pasan las seis.
+     De paso Tottus vuelve a su verde de marca. */
+  --plazavea: #D55E00;
+  --tottus: #009E73;
+  --metro: #0072B2;
+  --wong: #CC79A7;
 
   color-scheme: light;
 }
@@ -46,10 +53,14 @@
     --aviso-suave: #2C2616;
     --sombra: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -18px rgba(0,0,0,.9);
 
-    --tottus: #F06292;
-    --wong: #CE93D8;
-    --metro: #4FC3F7;
-    --plazavea: #FF8A65;
+    /* El oscuro se elige aparte, no se invierte: la banda de luminosidad en
+       fondo oscuro es 0,48-0,67 contra 0,43-0,77 del claro, asi que los mismos
+       tonos no entran. Estos tambien pasan las seis comprobaciones contra el
+       fondo #1D262B. */
+    --plazavea: #cb5a1a;
+    --tottus: #009b53;
+    --metro: #1a83db;
+    --wong: #b357ad;
 
     color-scheme: dark;
   }

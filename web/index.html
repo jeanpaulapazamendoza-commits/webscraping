@@ -6,6 +6,7 @@
 <title>Precios Supermercados Perú</title>
 <meta name="description" content="Comparador de precios de Tottus, Wong, Metro y Plaza Vea, con histórico diario.">
 <link rel="stylesheet" href="estilos.css">
+<link rel="stylesheet" href="panel.css">
 </head>
 <body>
 
@@ -22,7 +23,12 @@
   </div>
 </header>
 
-<main class="contenedor">
+<nav class="vistas contenedor" aria-label="Vistas">
+  <button type="button" class="vista activa" data-vista="explorar" aria-current="page">Explorar</button>
+  <button type="button" class="vista" data-vista="panel">Panel</button>
+</nav>
+
+<main class="contenedor" id="vista-explorar">
 
   <form class="buscador" id="formulario" role="search">
     <label class="visually-hidden" for="q">Buscar un producto</label>
@@ -66,6 +72,39 @@
 
 </main>
 
+<main class="contenedor" id="vista-panel" hidden>
+
+  <section class="panel-filtros" aria-label="Filtros del panel">
+    <div class="panel-filtros-cab">
+      <h2>Filtros</h2>
+      <div class="panel-filtros-acc">
+        <select id="pf-guardadas" aria-label="Combinaciones guardadas">
+          <option value="">Combinaciones guardadas…</option>
+        </select>
+        <button type="button" id="pf-guardar">Guardar esta</button>
+        <button type="button" id="pf-limpiar">Limpiar</button>
+      </div>
+    </div>
+    <div class="panel-campos" id="panel-campos"></div>
+  </section>
+
+  <section class="kpis" id="panel-kpis" aria-label="Indicadores"></section>
+
+  <section class="paneles" id="panel-graficos"></section>
+
+  <section class="panel-tabla-caja">
+    <div class="panel-tabla-cab">
+      <h2 id="panel-tabla-titulo">Productos</h2>
+      <button type="button" id="pf-csv" class="boton-csv">Exportar CSV</button>
+    </div>
+    <div class="panel-tabla-scroll">
+      <table class="panel-tabla" id="panel-tabla"></table>
+    </div>
+    <p class="panel-mas" id="panel-mas" hidden></p>
+  </section>
+
+</main>
+
 <footer class="pie">
   <div class="contenedor">
     <p id="pie-dato"></p>
@@ -75,5 +114,6 @@
 </footer>
 
 <script src="app.js"></script>
+<script src="panel.js"></script>
 </body>
 </html>

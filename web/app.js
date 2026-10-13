@@ -798,4 +798,7 @@ const entrada = document.getElementById('q');
     entrada.value = ''; estado.abierto = null; render(); entrada.focus();
   };
   render();
+  // El panel vive en panel.js y trabaja sobre estos mismos datos; se entera
+  // acá en vez de volver a pedirlos.
+  document.dispatchEvent(new CustomEvent('datos-listos'));
 }());
