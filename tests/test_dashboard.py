@@ -51,14 +51,24 @@ def _base():
 
 
 def _esperado():
-    """Lo que el snapshot debería mostrar, calculado aparte de la app."""
+    """Lo que el snapshot debería mostrar, calculado aparte de la app.
+
+    Incluye el filtro de agotados, que la app aplica por defecto. Faltaba, y la
+    prueba pasaba igual mientras el histórico tenía filas repetidas: un producto
+    cuya última lectura del día decía "sin stock" conservaba otra anterior que
+    decía lo contrario, así que sobrevivía al filtro y los dos números
+    coincidían por casualidad. Al dejar una sola lectura por día quedó a la
+    vista: 3.665 productos el último día, 284 sin stock, 3.381 a la vista.
+    """
     df = cargar_historico()
-    df["ts"] = pd.to_datetime(df["fecha_extraccion"])
+    df["ts"] = pd.to_datetime(df["fecha_extraccion"], errors="coerce", format="mixed")
     ultimo = df["ts"].dt.date.max()
-    del_dia = df[df["ts"].dt.date == ultimo]
+    del_dia = df[df["ts"].dt.date == ultimo].copy()
+    del_dia["disp"] = del_dia["disponible"].astype(str).map({"True": True, "False": False})
+    a_la_vista = del_dia[del_dia["disp"] != False]
     return {
         "dias": df["ts"].dt.date.nunique(),
-        "productos": len(del_dia.groupby(["supermercado", "producto_id"])),
+        "productos": len(a_la_vista.groupby(["supermercado", "producto_id"])),
     }
 
 

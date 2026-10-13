@@ -1,14 +1,14 @@
 {
-  "generado": "2026-10-12T16:19:32",
+  "generado": "2026-10-13T01:13:22",
   "ultimo_dia": "2026-10-12",
   "hora_de_la_foto": "15:35",
   "dias_con_dato": 121,
   "primer_dia": "2026-05-27",
-  "filas": 446220,
+  "filas": 422392,
   "productos": 4423,
   "productos_ultimo_dia": 3665,
   "productos_dia_anterior": 3714,
-  "atraso_dias": 0,
+  "atraso_dias": 1,
   "dias_faltantes": [
     "2026-05-28",
     "2026-06-05",
@@ -32,7 +32,7 @@
   "por_cadena": {
     "metro": {
       "productos": 1168,
-      "categorias": 8
+      "categorias": 7
     },
     "plazavea": {
       "productos": 780,
@@ -44,11 +44,11 @@
     },
     "wong": {
       "productos": 1190,
-      "categorias": 7
+      "categorias": 6
     }
   },
   "problemas": [],
   "avisos": [
-    "faltan 18 día(s) en el histórico, 1 de la última semana: 2026-10-05"
+    "faltan 18 día(s) en el histórico"
   ]
 }
