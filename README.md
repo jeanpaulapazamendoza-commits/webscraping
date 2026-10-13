@@ -311,10 +311,15 @@ estilo y dos scripts que leen los JSON que deja la corrida diaria en
 
 - **Explorar** — buscador por palabra clave, comparación entre cadenas y el
   histórico de cada grupo de productos parecidos.
-- **Panel** — el tablero: filtros combinables (texto, período, cadena, familia,
-  categoría, marca, solo con descuento, tope de precio), cinco indicadores,
-  cuatro gráficos y la tabla con exportación a CSV. Los filtros se pueden
-  guardar con un nombre y volver a aplicarlos.
+- **Panel** — el tablero: una lista de términos de búsqueda que se suman
+  (buscar `pollo fresco`, `bife angosto` y `picaña` a la vez y exportarlos
+  juntos), más filtros por período, cadena, familia, categoría, marca,
+  descuento y tope de precio. Cinco indicadores, cuatro gráficos y la tabla con
+  exportación a CSV del conjunto completo. Los filtros se guardan con un nombre.
+
+Un término puede ser una frase o **un producto concreto**, elegido de las
+sugerencias que aparecen al escribir: eso lo agrega al filtro y al gráfico de
+comparación de una sola vez.
 
 Los colores de cadena no se eligieron a ojo: los anteriores reprobaban dos de
 las seis comprobaciones del validador de paletas —Wong y Metro a ΔE 5,5 para

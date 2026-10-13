@@ -18,7 +18,12 @@
 /* ── estado ─────────────────────────────────────────────────────────────── */
 
 const PF = {
-  texto: '',
+  // Una lista de términos, no un texto suelto. Cada uno es {t, v} donde t es
+  // 'texto' (una frase: todas sus palabras tienen que estar) o 'prod' (un
+  // producto concreto, por id). Entre términos la condición es O: con
+  // "pollo fresco", "bife angosto" y "picaña" entran los tres grupos y se
+  // exportan juntos, que con un único campo de texto era imposible.
+  terminos: [],
   cadenas: new Set(),
   familias: new Set(),
   categorias: new Set(),
@@ -102,9 +107,14 @@ function invalidarCache(dias) {
 
 /* ── filtrado ───────────────────────────────────────────────────────────── */
 
+/** Si un producto satisface un término. */
+function cumple(p, termino) {
+  if (termino.t === 'prod') return p.id === termino.id;
+  const texto = normalizar(`${p.nombre} ${p.marca || ''} ${p.categoria}`);
+  return termino.palabras.every((w) => texto.includes(w));
+}
+
 function productosDelPanel() {
-  const t = normalizar(PF.texto);
-  const palabras = t ? t.split(' ').filter(Boolean) : [];
   return estado.indice.filter((p) => {
     if (PF.cadenas.size && !PF.cadenas.has(p.cadena)) return false;
     if (PF.familias.size && !PF.familias.has(p.familia)) return false;
@@ -112,12 +122,15 @@ function productosDelPanel() {
     if (PF.marcas.size && !PF.marcas.has(p.marca || '—')) return false;
     if (PF.soloDescuento && !p.descuento) return false;
     if (PF.precioMax != null && (p.precio == null || p.precio > PF.precioMax)) return false;
-    if (palabras.length) {
-      const n = normalizar(`${p.nombre} ${p.marca || ''} ${p.categoria}`);
-      if (!palabras.every((w) => n.includes(w))) return false;
-    }
+    // Entre términos vale O: alcanza con cumplir uno.
+    if (PF.terminos.length && !PF.terminos.some((x) => cumple(p, x))) return false;
     return true;
   });
+}
+
+/** Cuántos productos trae cada término por sí solo, para mostrarlo en su chip. */
+function conteoPorTermino() {
+  return PF.terminos.map((x) => estado.indice.filter((p) => cumple(p, x)).length);
 }
 
 /* ── cálculo ────────────────────────────────────────────────────────────── */
@@ -322,8 +335,12 @@ function grafLineas({ dias, series, formato, titulo, idUnico }) {
         // Recorte por caracteres y no por palabras: dos productos de la
         // misma cadena suelen compartir las primeras dos ("Pollo Fresco…")
         // y la etiqueta dejaba de distinguirlos.
+        // Cadena primero y después el producto: el nombre solo no dice de
+        // dónde viene, y con dos cadenas vendiendo lo mismo hace falta.
+        const corto = etiqueta && etiqueta.length > 15
+          ? etiqueta.slice(0, 14) + '…' : etiqueta;
         t.textContent = etiqueta
-          ? (etiqueta.length > 17 ? etiqueta.slice(0, 16) + '…' : etiqueta)
+          ? `${CADENAS[cadena]?.nombre || cadena} · ${corto}`
           : (CADENAS[cadena]?.nombre || cadena);
         svg.append(t);
         break;
@@ -362,7 +379,7 @@ function grafLineas({ dias, series, formato, titulo, idUnico }) {
       bolita.style.background = CADENAS[s.cadena]?.color || 'var(--apagado)';
       linea.append(bolita,
         el('span', 'globo-n', s.etiqueta
-          ? s.etiqueta.slice(0, 34)
+          ? `${CADENAS[s.cadena]?.nombre || s.cadena} · ${s.etiqueta.slice(0, 30)}`
           : (CADENAS[s.cadena]?.nombre || s.cadena)),
         el('b', null, escribir(v)));
       globo.append(linea);
@@ -399,8 +416,12 @@ function grafBarras({ filas, titulo, formato, divergente }) {
       i.style.background = CADENAS[f.cadena]?.color || 'var(--apagado)';
       etiqueta.append(i);
     }
-    etiqueta.append(document.createTextNode(f.nombre));
-    etiqueta.title = f.nombre;
+    // La cadena va primero y no se encoge: el nombre del producto es lo que
+    // se recorta cuando no entra, porque saber de qué supermercado viene no
+    // puede quedar afuera.
+    if (f.cadenaNombre) etiqueta.append(el('em', 'barra-cadena', f.cadenaNombre));
+    etiqueta.append(el('span', 'barra-nombre', f.nombre));
+    etiqueta.title = f.cadenaNombre ? `${f.cadenaNombre} · ${f.nombre}` : f.nombre;
 
     const pista = el('span', 'barra-pista');
     const barra = el('span', 'barra');
@@ -416,7 +437,8 @@ function grafBarras({ filas, titulo, formato, divergente }) {
       formato === 'pct' ? pct(f.valor, 0) : `S/ ${soles(f.valor)}`);
     if (divergente) valor.classList.add(f.valor >= 0 ? 'sube' : 'baja');
     fila.append(etiqueta, pista, valor);
-    fila.title = `${f.nombre}: ${formato === 'pct' ? pct(f.valor, 1) : soles(f.valor)}`;
+    fila.title = `${f.cadenaNombre ? f.cadenaNombre + ' · ' : ''}${f.nombre}: `
+      + `${formato === 'pct' ? pct(f.valor, 1) : soles(f.valor)}`;
     lista.append(fila);
   });
   caja.append(lista);
@@ -457,6 +479,173 @@ function bloque(titulo, subtitulo, contenido) {
 
 /* ── filtros: la interfaz ───────────────────────────────────────────────── */
 
+/* ── el buscador de términos ────────────────────────────────────────────── */
+
+// Se construye una sola vez y se reusa: reconstruirlo en cada repintado le
+// quitaba el foco al campo y se perdía la palabra a medio escribir.
+let nodoBuscador = null;
+let nodoChips = null;
+let nodoSugerencias = null;
+let nodoEntrada = null;
+
+const MAX_SUGERENCIAS = 7;
+
+function agregarTermino(termino) {
+  const yaEsta = PF.terminos.some(
+    (x) => x.t === termino.t && (x.id || x.v) === (termino.id || termino.v));
+  if (!yaEsta) PF.terminos.push(termino);
+  // Un producto agregado a mano entra también al gráfico de comparación: es
+  // justamente para eso que uno busca un producto puntual.
+  if (termino.t === 'prod' && PF.seleccion.size < TOPE_SELECCION) {
+    PF.seleccion.add(termino.id);
+  }
+  nodoEntrada.value = '';
+  cerrarSugerencias();
+  pintarPanel({ conservarFiltros: true });
+}
+
+function cerrarSugerencias() {
+  nodoSugerencias.replaceChildren();
+  nodoSugerencias.hidden = true;
+}
+
+function pintarSugerencias() {
+  const crudo = nodoEntrada.value.trim();
+  if (!crudo) { cerrarSugerencias(); return; }
+  const palabras = normalizar(crudo).split(' ').filter(Boolean);
+  if (!palabras.length) { cerrarSugerencias(); return; }
+
+  const opciones = [];
+  const comoTexto = { t: 'texto', v: crudo, palabras };
+  const cuantos = estado.indice.filter((p) => cumple(p, comoTexto)).length;
+  opciones.push({
+    clase: 'sug-texto',
+    etiqueta: `Buscar «${crudo}»`,
+    nota: `${cuantos.toLocaleString('es-PE')} producto(s)`,
+    accion: () => agregarTermino(comoTexto),
+  });
+
+  estado.indice
+    .filter((p) => cumple(p, comoTexto))
+    .sort((a, b) => (a.precio ?? Infinity) - (b.precio ?? Infinity))
+    .slice(0, MAX_SUGERENCIAS)
+    .forEach((p) => opciones.push({
+      clase: 'sug-prod',
+      cadena: p.cadena,
+      etiqueta: p.nombre,
+      nota: `${CADENAS[p.cadena]?.nombre || p.cadena} · S/ ${soles(p.precio)}`,
+      accion: () => agregarTermino({ t: 'prod', v: p.nombre, id: p.id }),
+    }));
+
+  nodoSugerencias.replaceChildren(...opciones.map((o) => {
+    const b = el('button', `sug ${o.clase}`);
+    b.type = 'button';
+    if (o.cadena) {
+      const i = el('i');
+      i.style.background = CADENAS[o.cadena]?.color || 'var(--apagado)';
+      b.append(i);
+    }
+    b.append(el('span', 'sug-txt', o.etiqueta), el('em', null, o.nota));
+    b.addEventListener('mousedown', (ev) => { ev.preventDefault(); o.accion(); });
+    return b;
+  }));
+  nodoSugerencias.hidden = false;
+}
+
+function pintarChips() {
+  const conteos = conteoPorTermino();
+  nodoChips.replaceChildren();
+  if (!PF.terminos.length) {
+    nodoChips.append(el('span', 'chips-vacio',
+      'Sin términos: entran todos los productos. Escribí uno y agregalo.'));
+    return;
+  }
+  PF.terminos.forEach((x, i) => {
+    const c = el('span', `termino ${x.t === 'prod' ? 'es-prod' : ''}`);
+    if (x.t === 'prod') {
+      const ind = estado.indice.find((p) => p.id === x.id);
+      const punto = el('i');
+      punto.style.background = CADENAS[ind?.cadena]?.color || 'var(--apagado)';
+      c.append(punto);
+    }
+    if (x.t === 'prod') {
+      const ind = estado.indice.find((p) => p.id === x.id);
+      c.append(el('span', 'termino-cadena',
+        CADENAS[ind?.cadena]?.nombre || ind?.cadena || ''));
+    }
+    c.append(el('span', 'termino-txt', x.v), el('em', null, String(conteos[i])));
+    const quitar = el('button');
+    quitar.type = 'button';
+    quitar.textContent = '×';
+    quitar.setAttribute('aria-label', `Quitar ${x.v}`);
+    quitar.addEventListener('click', () => {
+      if (x.t === 'prod') PF.seleccion.delete(x.id);
+      PF.terminos.splice(i, 1);
+      pintarPanel({ conservarFiltros: true });
+    });
+    c.append(quitar);
+    c.title = x.t === 'prod' ? `Producto: ${x.v}` : `Búsqueda: ${x.v}`;
+    nodoChips.append(c);
+  });
+  const limpiar = el('button', 'termino-limpiar', 'Quitar todos');
+  limpiar.type = 'button';
+  limpiar.addEventListener('click', () => {
+    PF.terminos.forEach((x) => { if (x.t === 'prod') PF.seleccion.delete(x.id); });
+    PF.terminos = [];
+    pintarPanel({ conservarFiltros: true });
+  });
+  nodoChips.append(limpiar);
+}
+
+function buscador() {
+  if (nodoBuscador) { pintarChips(); return nodoBuscador; }
+
+  nodoBuscador = el('div', 'campo campo-ancho buscador-terminos');
+  nodoBuscador.append(el('label', null,
+    'Términos de búsqueda — se suman, entra lo que cumpla cualquiera'));
+
+  const fila = el('div', 'buscador-fila');
+  nodoEntrada = el('input');
+  nodoEntrada.type = 'search';
+  nodoEntrada.placeholder = 'pollo fresco, bife angosto, picaña…';
+  nodoEntrada.autocomplete = 'off';
+  nodoEntrada.addEventListener('input', pintarSugerencias);
+  nodoEntrada.addEventListener('focus', pintarSugerencias);
+  nodoEntrada.addEventListener('blur', () => setTimeout(cerrarSugerencias, 120));
+  nodoEntrada.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      const crudo = nodoEntrada.value.trim();
+      const palabras = normalizar(crudo).split(' ').filter(Boolean);
+      if (palabras.length) agregarTermino({ t: 'texto', v: crudo, palabras });
+    } else if (ev.key === 'Escape') cerrarSugerencias();
+    else if (ev.key === 'Backspace' && !nodoEntrada.value && PF.terminos.length) {
+      const fuera = PF.terminos.pop();
+      if (fuera.t === 'prod') PF.seleccion.delete(fuera.id);
+      pintarPanel({ conservarFiltros: true });
+    }
+  });
+  const agregar = el('button', 'buscador-agregar', 'Agregar');
+  agregar.type = 'button';
+  agregar.addEventListener('click', () => {
+    const crudo = nodoEntrada.value.trim();
+    const palabras = normalizar(crudo).split(' ').filter(Boolean);
+    if (palabras.length) agregarTermino({ t: 'texto', v: crudo, palabras });
+  });
+  fila.append(nodoEntrada, agregar);
+
+  nodoSugerencias = el('div', 'sugerencias-panel');
+  nodoSugerencias.hidden = true;
+  const envoltura = el('div', 'buscador-envoltura');
+  envoltura.append(fila, nodoSugerencias);
+
+  nodoChips = el('div', 'terminos');
+  nodoBuscador.append(envoltura, nodoChips);
+  pintarChips();
+  return nodoBuscador;
+}
+
+
 function opcionesDe(campo) {
   const cuenta = new Map();
   estado.indice.forEach((p) => {
@@ -489,18 +678,7 @@ function pintarFiltrosPanel() {
   const cont = document.getElementById('panel-campos');
   cont.replaceChildren();
 
-  const texto = el('div', 'campo campo-ancho');
-  texto.append(el('label', null, 'Buscar en nombre, marca o categoría'));
-  const inp = el('input');
-  inp.type = 'search';
-  inp.placeholder = 'pollo fresco, san fernando, palta…';
-  inp.value = PF.texto;
-  inp.addEventListener('input', () => {
-    PF.texto = inp.value;
-    pintarPanel({ conservarFiltros: true });
-  });
-  texto.append(inp);
-  cont.append(texto);
+  cont.append(buscador());
 
   const rango = el('div', 'campo');
   rango.append(el('label', null, 'Período'));
@@ -557,17 +735,22 @@ function escribirGuardadas(obj) {
 }
 function instantanea() {
   return {
-    texto: PF.texto, dias: PF.dias, soloDescuento: PF.soloDescuento,
-    precioMax: PF.precioMax,
+    terminos: PF.terminos, dias: PF.dias, soloDescuento: PF.soloDescuento,
+    precioMax: PF.precioMax, seleccion: [...PF.seleccion],
     cadenas: [...PF.cadenas], familias: [...PF.familias],
     categorias: [...PF.categorias], marcas: [...PF.marcas],
   };
 }
 function aplicar(snap) {
-  PF.texto = snap.texto || '';
+  // Los términos guardados vienen sin `palabras`, que es derivada: se
+  // recalcula al cargarlos para no depender de lo que había en el disco.
+  PF.terminos = (snap.terminos || []).map((x) => (x.t === 'prod' ? x : {
+    ...x, palabras: normalizar(x.v).split(' ').filter(Boolean),
+  }));
   PF.dias = snap.dias || 90;
   PF.soloDescuento = !!snap.soloDescuento;
   PF.precioMax = snap.precioMax ?? null;
+  PF.seleccion = new Set(snap.seleccion || []);
   ['cadenas', 'familias', 'categorias', 'marcas'].forEach((k) => {
     PF[k] = new Set(snap[k] || []);
   });
@@ -659,15 +842,22 @@ function pintarGraficos(c) {
     .sort((a, b) => b.variacion - a.variacion);
   const extremos = [...movimientos.slice(0, 5), ...movimientos.slice(-5).reverse()]
     .filter((v, i, arr) => arr.indexOf(v) === i)
-    .map((f) => ({ nombre: `${f.p.nombre.slice(0, 38)}`, cadena: f.p.cadena, valor: f.variacion }));
+    .map((f) => ({
+      nombre: f.p.nombre.slice(0, 34),
+      // Sin esto la barra solo tenía el punto de color, y dos productos con el
+      // mismo nombre en cadenas distintas eran indistinguibles.
+      cadenaNombre: CADENAS[f.p.cadena]?.nombre || f.p.cadena,
+      cadena: f.p.cadena,
+      valor: f.variacion,
+    }));
 
   const bloques = [];
   if (PF.seleccion.size) {
     const series = seriesDeSeleccion(c.dias);
     bloques.push(bloque(
       `Comparar ${series.length} producto(s) seleccionado(s)`,
-      'Los que tildaste en la tabla de abajo. Dos productos de la misma cadena '
-      + 'comparten color, así que el segundo va punteado.',
+      'Los que agregaste como término o tildaste en la tabla. Dos productos de '
+      + 'la misma cadena comparten color, así que el segundo va punteado.',
       grafLineas({ dias: c.dias, series, formato: 'soles',
                    titulo: 'Histórico de los productos seleccionados' })));
   }
@@ -708,8 +898,12 @@ function pintarGraficos(c) {
 function pintarTabla(c) {
   const tabla = document.getElementById('panel-tabla');
   const cab = el('tr');
-  [['', 'tilde'], ['Producto', ''], ['Hoy', 'num'], ['Mediana', 'num'],
-    ['Mínimo', 'num'], ['Máximo', 'num'], ['En promo', 'num'], ['Período', 'num']]
+  // La cadena va escrita, no solo en el color del punto: en la tabla aparecen
+  // productos con el mismo nombre en dos cadenas distintas y el punto obliga a
+  // recordar el código de colores para distinguirlos.
+  [['', 'tilde'], ['Cadena', 'cad'], ['Producto', ''], ['Hoy', 'num'],
+    ['Mediana', 'num'], ['Mínimo', 'num'], ['Máximo', 'num'],
+    ['En promo', 'num'], ['Período', 'num']]
     .forEach(([t, cl]) => cab.append(el('th', cl, t)));
   const cuerpo = el('tbody');
   const orden = [...c.filas].sort((a, b) => (b.variacion ?? 0) - (a.variacion ?? 0));
@@ -728,12 +922,14 @@ function pintarTabla(c) {
       pintarPanel({ conservarFiltros: true });
     });
     tdTilde.append(caja);
-    const td = el('td', 'prod');
+    const tdCadena = el('td', 'cad');
     const i = el('i');
     i.style.background = CADENAS[f.p.cadena]?.color || 'var(--apagado)';
-    td.append(i, el('span', 'tb-nombre', f.p.nombre));
+    tdCadena.append(i, document.createTextNode(CADENAS[f.p.cadena]?.nombre || f.p.cadena));
+    const td = el('td', 'prod');
+    td.append(el('span', 'tb-nombre', f.p.nombre));
     if (f.enMinimo) td.append(el('em', 'marca-min', 'mínimo'));
-    tr.append(tdTilde, td,
+    tr.append(tdTilde, tdCadena, td,
       el('td', 'num', `S/ ${soles(f.hoy)}`),
       el('td', 'num', `S/ ${soles(f.mediana)}`),
       el('td', 'num', `S/ ${soles(f.min)}`),
@@ -763,7 +959,8 @@ function pintarTabla(c) {
 function pintarPanel({ conservarFiltros = false } = {}) {
   // Al tipear no se repintan los filtros: reconstruirlos le saca el foco al
   // campo y se pierde la palabra a medio escribir.
-  if (!conservarFiltros) pintarFiltrosPanel();
+  if (conservarFiltros) pintarChips();
+  else pintarFiltrosPanel();
   const c = calcularPanel();
   ultimoCalculo = c;
   pintarKpis(c.kpis, c.dias);

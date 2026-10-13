@@ -590,11 +590,32 @@ function pintarDetalle(grupo) {
   // histórico, así que se nombra el rango en vez de un conteo que no cuadra.
   const [, m1, d1] = dias[0].split('-');
   const [, m2, d2] = dias[dias.length - 1].split('-');
-  cab.append(el('h3', null, `Evolución · ${d1}/${m1} a ${d2}/${m2}`));
+  const titulo = el('div', 'detalle-titulo');
+  titulo.append(el('h3', null, `Evolución · ${d1}/${m1} a ${d2}/${m2}`));
+  // Cerrar visible. Antes cualquier fila del grupo servía para plegarlo, que
+  // funciona pero no se ve: había que descubrirlo haciendo clic al final.
+  const cerrar = el('button', 'detalle-cerrar');
+  cerrar.type = 'button';
+  cerrar.title = 'Cerrar el histórico';
+  cerrar.setAttribute('aria-label', 'Cerrar el histórico');
+  cerrar.textContent = '×';
+  cerrar.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    estado.abierto = null;
+    render();
+  });
+  titulo.append(cerrar);
+  cab.append(titulo);
+
   const estilos = estilosDeSerie(grupo.items);
+  // Qué productos del grupo se dibujan. Arrancan todos, y la leyenda los
+  // enciende y apaga: con cinco artículos parecidos el gráfico no se lee, y
+  // comparar dos de ellos era imposible sin esto.
+  const visibles = new Set(grupo.items.map((p) => p.id));
   const leyenda = el('div', 'detalle-leyenda');
   grupo.items.forEach((p, k) => {
-    const s = el('span');
+    const s = el('button', 'leyenda-item');
+    s.type = 'button';
     const i = el('i');
     i.style.background = estilos[k].color;
     // Punteada en la leyenda igual que en el gráfico, si no no se sabe cuál es.
@@ -608,6 +629,14 @@ function pintarDetalle(grupo) {
       etiqueta += ` · ${corto}`;
     }
     s.append(i, document.createTextNode(etiqueta));
+    s.title = p.nombre;
+    s.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (visibles.has(p.id) && visibles.size > 1) visibles.delete(p.id);
+      else visibles.add(p.id);
+      s.classList.toggle('apagado', !visibles.has(p.id));
+      redibujar();
+    });
     leyenda.append(s);
   });
   cab.append(leyenda);
@@ -620,13 +649,13 @@ function pintarDetalle(grupo) {
   let rango = dias.length > 120 ? 90 : 0;
 
   const redibujar = () => {
-    const visibles = rango ? dias.slice(-rango) : dias;
+    const ventana = rango ? dias.slice(-rango) : dias;
     const series = grupo.items
-      .map((p, i) => ({ p, estilo: estilos[i], valores: serieDiaria(p.id, visibles) }))
-      .filter((s) => s.valores.some(Boolean));
+      .map((p, i) => ({ p, estilo: estilos[i], valores: serieDiaria(p.id, ventana) }))
+      .filter((s) => visibles.has(s.p.id) && s.valores.some(Boolean));
     lienzo.replaceChildren(
-      dibujarGrafico(series, visibles),
-      pintarMetricas(series, visibles),
+      dibujarGrafico(series, ventana),
+      pintarMetricas(series, ventana),
     );
     [...selector.children].forEach((b) => {
       b.classList.toggle('activo', Number(b.dataset.dias) === rango);

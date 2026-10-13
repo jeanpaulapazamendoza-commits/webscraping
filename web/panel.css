@@ -79,6 +79,82 @@
   border: 0; border-bottom: 1px solid var(--linea-fuerte);
 }
 
+/* ── el buscador de términos ─────────────────────────────────────────────── */
+
+.buscador-envoltura { position: relative; }
+.buscador-fila { display: flex; gap: 6px; }
+.buscador-fila input {
+  flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 8px 11px;
+  color: var(--tinta); background: var(--superficie-2);
+  border: 1px solid var(--linea); border-radius: 8px;
+}
+.buscador-fila input:focus { outline: 2px solid var(--acento); outline-offset: -1px; }
+.buscador-agregar {
+  font: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px;
+  cursor: pointer; color: #fff; background: var(--acento);
+  border: 1px solid var(--acento); border-radius: 8px; flex: none;
+}
+.buscador-agregar:hover { filter: brightness(1.08); }
+
+.sugerencias-panel {
+  position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px);
+  max-height: 290px; overflow-y: auto;
+  background: var(--superficie); border: 1px solid var(--linea-fuerte);
+  border-radius: 9px; box-shadow: 0 10px 28px rgba(0, 0, 0, .28);
+  padding: 4px;
+}
+.sug {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+  padding: 7px 9px; border-radius: 6px;
+  color: var(--tinta); background: transparent; border: 0;
+}
+.sug:hover { background: var(--superficie-2); }
+.sug i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.sug-txt { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sug em {
+  font-style: normal; font-size: 11.5px; color: var(--apagado);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+/* La primera opción agrega la frase entera; las de abajo, un producto suelto. */
+.sug-texto { font-weight: 600; border-bottom: 1px solid var(--linea);
+             border-radius: 6px 6px 0 0; margin-bottom: 2px; }
+
+.terminos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px;
+            align-items: center; }
+.chips-vacio { font-size: 12px; color: var(--apagado); }
+.termino {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+  padding: 4px 5px 4px 10px; border-radius: 999px;
+  color: var(--tinta); background: color-mix(in srgb, var(--acento) 14%, transparent);
+  border: 1px solid var(--acento);
+  max-width: 280px;
+}
+/* Un producto concreto se ve distinto de una búsqueda: lleva el punto de su
+   cadena y el borde neutro, porque no es una frase sino una fila. */
+.termino.es-prod {
+  background: var(--superficie-2); border-color: var(--linea-fuerte);
+}
+.termino i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.termino-cadena {
+  font-size: 11px; font-weight: 600; color: var(--apagado); flex: none;
+}
+.termino-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.termino em { font-style: normal; font-size: 11px; color: var(--apagado);
+              font-variant-numeric: tabular-nums; }
+.termino button {
+  font: inherit; font-size: 15px; line-height: 1; cursor: pointer;
+  width: 19px; height: 19px; border-radius: 50%; flex: none;
+  color: var(--apagado); background: transparent; border: 0;
+}
+.termino button:hover { color: var(--tinta); background: var(--linea); }
+.termino-limpiar {
+  font: inherit; font-size: 12px; cursor: pointer; padding: 4px 10px;
+  color: var(--apagado); background: transparent;
+  border: 1px dashed var(--linea-fuerte); border-radius: 999px;
+}
+.termino-limpiar:hover { color: var(--tinta); }
+
 /* ── indicadores ─────────────────────────────────────────────────────────── */
 
 .kpis {
@@ -155,14 +231,19 @@
 
 .barras { display: flex; flex-direction: column; gap: 7px; }
 .barra-fila {
-  display: grid; grid-template-columns: minmax(90px, 1.3fr) 2fr auto;
+  display: grid; grid-template-columns: minmax(120px, 1.6fr) 1.6fr auto;
   align-items: center; gap: 9px; font-size: 12.5px;
 }
 .barra-etq {
   display: flex; align-items: center; gap: 6px; color: var(--tinta);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; min-width: 0;
 }
+.barra-nombre { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .barra-etq i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.barra-cadena {
+  font-style: normal; font-size: 11px; font-weight: 600;
+  color: var(--apagado); flex: none;
+}
 .barra-pista { background: var(--superficie-2); border-radius: 4px; height: 13px; }
 .barra { display: block; height: 100%; border-radius: 4px; min-width: 2px; }
 .barra-val {
@@ -199,12 +280,16 @@
 .panel-tabla td {
   padding: 7px 0; border-bottom: 1px solid var(--linea); color: var(--apagado);
 }
-/* La celda del producto lleva el punto de la cadena. Va por clase y no por
-   :first-child, que desde que hay columna de tilde apunta al checkbox. */
-.panel-tabla td.prod {
-  display: flex; align-items: center; gap: 7px; color: var(--tinta);
+/* La cadena tiene columna propia con su nombre escrito: el punto de color
+   solo obliga a recordar el código, y hay productos con el mismo nombre en dos
+   cadenas distintas. */
+.panel-tabla th.cad { white-space: nowrap; }
+.panel-tabla td.cad {
+  display: flex; align-items: center; gap: 6px; color: var(--tinta);
+  white-space: nowrap; padding-right: 12px;
 }
-.panel-tabla td.prod i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.panel-tabla td.cad i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.panel-tabla td.prod { color: var(--tinta); }
 .panel-tabla .tb-nombre {
   max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -228,8 +313,10 @@
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .kpi { padding: 10px 11px; }
   .kpi-v { font-size: 20px; }
-  .panel-tabla th:nth-child(4), .panel-tabla td:nth-child(4),
-  .panel-tabla th:nth-child(5), .panel-tabla td:nth-child(5) { display: none; }
+  /* Se caen mediana y mínimo, no la cadena: saber de qué supermercado es el
+     producto importa más que un estadístico de más. */
+  .panel-tabla th:nth-child(5), .panel-tabla td:nth-child(5),
+  .panel-tabla th:nth-child(6), .panel-tabla td:nth-child(6) { display: none; }
   .barra-fila { grid-template-columns: minmax(74px, 1fr) 1.4fr auto; font-size: 12px; }
 }
 

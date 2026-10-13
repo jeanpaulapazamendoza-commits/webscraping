@@ -266,9 +266,31 @@ body {
 .detalle-cab h3 { margin: 0; font-size: 13px; font-weight: 650;
                   letter-spacing: .05em; text-transform: uppercase;
                   color: var(--apagado); }
-.detalle-leyenda { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; }
-.detalle-leyenda span { display: inline-flex; align-items: center; gap: 5px; }
-.detalle-leyenda i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.detalle-titulo { display: flex; align-items: center; gap: 10px; }
+.detalle-cerrar {
+  font: inherit; font-size: 18px; line-height: 1; cursor: pointer;
+  width: 24px; height: 24px; border-radius: 50%;
+  color: var(--apagado); background: transparent;
+  border: 1px solid var(--linea);
+}
+.detalle-cerrar:hover { color: var(--tinta); border-color: var(--linea-fuerte); }
+
+.detalle-leyenda { display: flex; flex-wrap: wrap; gap: 7px; font-size: 12.5px; }
+/* Cada entrada enciende y apaga su línea: con cinco artículos parecidos el
+   gráfico no se lee, y comparar solo dos era imposible. */
+.leyenda-item {
+  font: inherit; font-size: 12.5px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: 999px;
+  color: var(--tinta); background: var(--superficie);
+  border: 1px solid var(--linea);
+  max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.leyenda-item:hover { border-color: var(--linea-fuerte); }
+.leyenda-item.apagado { color: var(--apagado); opacity: .55; }
+.leyenda-item.apagado i { filter: grayscale(1); }
+.detalle-leyenda i { width: 14px; height: 3px; border-radius: 2px;
+                     display: inline-block; flex: none; }
 
 /* Selector de rango. 121 días apretados se leen como ruido; el de 30 es el
    que contesta "¿está caro esta semana?". */
