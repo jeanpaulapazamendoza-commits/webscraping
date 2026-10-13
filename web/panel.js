@@ -32,7 +32,11 @@ const PF = {
   familias: new Set(),
   categorias: new Set(),
   marcas: new Set(),
-  dias: 90,
+  // El rango es un par de fechas, no una cantidad de días hacia atrás: así se
+  // puede exportar un mes cerrado, o la quincena de una promoción, y no solo
+  // "los últimos N". Los atajos de abajo lo único que hacen es completarlas.
+  desde: null,
+  hasta: null,
   soloDescuento: false,
   precioMax: null,
   // Los productos tildados en la tabla, para compararlos entre sí. Se guarda el
@@ -62,14 +66,36 @@ function mediana(valores) {
 }
 
 /** Los días del rango elegido, de más viejo a más nuevo. */
+/** Los límites de lo que hay en el histórico. */
+function limites() {
+  return { min: estado.salud.primer_dia, max: estado.salud.ultimo_dia };
+}
+
+/** Suma días a una fecha ISO, sin pasar por la zona horaria del navegador.
+ *
+ *  El mediodía es a propósito: con T00:00 y un huso al oeste de Greenwich,
+ *  toISOString() devuelve el día anterior. */
+function sumarDias(iso, n) {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** El rango vigente, recortado a lo que el histórico tiene. */
+function rangoVigente() {
+  const { min, max } = limites();
+  let desde = PF.desde || sumarDias(max, -89);
+  let hasta = PF.hasta || max;
+  if (desde < min) desde = min;
+  if (hasta > max) hasta = max;
+  if (desde > hasta) desde = hasta;
+  return { desde, hasta };
+}
+
 function diasDelPanel() {
-  const fin = new Date(estado.salud.ultimo_dia + 'T12:00:00');
+  const { desde, hasta } = rangoVigente();
   const dias = [];
-  const ini = new Date(fin);
-  ini.setDate(ini.getDate() - (PF.dias - 1));
-  for (const d = new Date(ini); d <= fin; d.setDate(d.getDate() + 1)) {
-    dias.push(d.toISOString().slice(0, 10));
-  }
+  for (let d = desde; d <= hasta; d = sumarDias(d, 1)) dias.push(d);
   return dias;
 }
 
@@ -722,16 +748,58 @@ function pintarFiltrosPanel() {
 
   const rango = el('div', 'campo');
   rango.append(el('label', null, 'Período'));
+  const { min, max } = limites();
+  const vig = rangoVigente();
+
+  const fechas = el('div', 'rango-fechas');
+  const campo = (etq, valor, alCambiar) => {
+    const caja = el('label', 'rango-campo');
+    caja.append(el('span', null, etq));
+    const i = el('input');
+    i.type = 'date';
+    i.min = min; i.max = max; i.value = valor;
+    i.addEventListener('change', () => {
+      if (i.value) alCambiar(i.value);
+      pintarPanel();
+    });
+    caja.append(i);
+    return caja;
+  };
+  fechas.append(
+    campo('Desde', vig.desde, (v) => { PF.desde = v; }),
+    campo('Hasta', vig.hasta, (v) => { PF.hasta = v; }),
+  );
+  rango.append(fechas);
+
+  // Los atajos no son otro estado: escriben las dos fechas. Así el selector
+  // siempre muestra el rango real y no hay dos fuentes de verdad.
   const chips = el('div', 'campo-chips');
-  [['30 días', 30], ['90 días', 90], ['6 meses', 180], ['Todo', 9999]].forEach(([t, n]) => {
+  const ATAJOS = [
+    ['30 días', () => ({ desde: sumarDias(max, -29), hasta: max })],
+    ['90 días', () => ({ desde: sumarDias(max, -89), hasta: max })],
+    ['Este mes', () => ({ desde: max.slice(0, 8) + '01', hasta: max })],
+    ['Mes pasado', () => {
+      const primeroDeEste = max.slice(0, 8) + '01';
+      const finAnterior = sumarDias(primeroDeEste, -1);
+      return { desde: finAnterior.slice(0, 8) + '01', hasta: finAnterior };
+    }],
+    ['Todo', () => ({ desde: min, hasta: max })],
+  ];
+  ATAJOS.forEach(([etq, calcular]) => {
     const b = el('button', 'chip');
     b.type = 'button';
-    if (PF.dias === n) b.classList.add('activo');
-    b.textContent = t;
-    b.addEventListener('click', () => { PF.dias = n; pintarPanel(); });
+    b.textContent = etq;
+    const r = calcular();
+    if (r.desde === vig.desde && r.hasta === vig.hasta) b.classList.add('activo');
+    b.addEventListener('click', () => {
+      PF.desde = r.desde; PF.hasta = r.hasta;
+      pintarPanel();
+    });
     chips.append(b);
   });
   rango.append(chips);
+  rango.append(el('p', 'rango-nota',
+    `${diasDelPanel().length} días · el histórico va del ${min} al ${max}`));
   cont.append(rango);
 
   cont.append(campoMulti('Cadena', 'cadena', PF.cadenas, 8));
@@ -775,7 +843,8 @@ function escribirGuardadas(obj) {
 }
 function instantanea() {
   return {
-    terminos: PF.terminos, modo: PF.modo, dias: PF.dias,
+    terminos: PF.terminos, modo: PF.modo,
+    desde: PF.desde, hasta: PF.hasta,
     soloDescuento: PF.soloDescuento,
     precioMax: PF.precioMax, seleccion: [...PF.seleccion],
     cadenas: [...PF.cadenas], familias: [...PF.familias],
@@ -789,7 +858,8 @@ function aplicar(snap) {
     ...x, palabras: normalizar(x.v).split(' ').filter(Boolean),
   }));
   PF.modo = snap.modo === 'y' ? 'y' : 'o';
-  PF.dias = snap.dias || 90;
+  PF.desde = snap.desde || null;
+  PF.hasta = snap.hasta || null;
   PF.soloDescuento = !!snap.soloDescuento;
   PF.precioMax = snap.precioMax ?? null;
   PF.seleccion = new Set(snap.seleccion || []);

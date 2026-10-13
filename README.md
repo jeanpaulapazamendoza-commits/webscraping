@@ -313,8 +313,9 @@ estilo y dos scripts que leen los JSON que deja la corrida diaria en
   histórico de cada grupo de productos parecidos.
 - **Panel** — el tablero: una lista de términos de búsqueda que se suman
   (buscar `pollo fresco`, `bife angosto` y `picaña` a la vez y exportarlos
-  juntos), más filtros por período, cadena, familia, categoría, marca,
-  descuento y tope de precio. Cinco indicadores, cuatro gráficos y la tabla con
+  juntos), más un rango de fechas libre (desde/hasta, con atajos
+  para 30 días, 90 días, este mes, el mes pasado y todo) y filtros por cadena,
+  familia, categoría, marca, descuento y tope de precio. Cinco indicadores, cuatro gráficos y la tabla con
   exportación a CSV del conjunto completo. Los filtros se guardan con un nombre.
 
 Un término puede ser una frase o **un producto concreto**, elegido de las
