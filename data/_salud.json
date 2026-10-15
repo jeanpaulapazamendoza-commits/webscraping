@@ -1,13 +1,13 @@
 {
-  "generado": "2026-10-14T11:02:31",
-  "ultimo_dia": "2026-10-14",
-  "hora_de_la_foto": "11:02",
-  "dias_con_dato": 123,
+  "generado": "2026-10-15T10:50:02",
+  "ultimo_dia": "2026-10-15",
+  "hora_de_la_foto": "10:49",
+  "dias_con_dato": 124,
   "primer_dia": "2026-05-27",
-  "filas": 430907,
-  "productos": 5075,
-  "productos_ultimo_dia": 4273,
-  "productos_dia_anterior": 4242,
+  "filas": 435199,
+  "productos": 5088,
+  "productos_ultimo_dia": 4292,
+  "productos_dia_anterior": 4273,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,7 +31,7 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1246,
+      "productos": 1244,
       "categorias": 63
     },
     "plazavea": {
@@ -39,11 +39,11 @@
       "categorias": 55
     },
     "tottus": {
-      "productos": 595,
-      "categorias": 47
+      "productos": 615,
+      "categorias": 46
     },
     "wong": {
-      "productos": 1403,
+      "productos": 1404,
       "categorias": 64
     }
   },
@@ -53,19 +53,35 @@
   ],
   "corrida": {
     "targets": 84,
-    "exitosos": 84,
-    "fallidos": 0,
-    "salvados_a_reintento": 2,
-    "fallos": [],
+    "exitosos": 82,
+    "fallidos": 2,
+    "salvados_a_reintento": 3,
+    "fallos": [
+      {
+        "cadena": "tottus",
+        "categoria": "argentina",
+        "error": "La página no es un listado de productos (sin 'pagination'): https://www.tottus.com.pe/tottus-pe/lista/CATG17672/Argentina"
+      },
+      {
+        "cadena": "tottus",
+        "categoria": "uruguaya",
+        "error": "La página no es un listado de productos (sin 'pagination'): https://www.tottus.com.pe/tottus-pe/lista/CATG17673/Uruguaya"
+      }
+    ],
     "reintentos": [
       {
         "cadena": "plazavea",
-        "categoria": "frutas",
+        "categoria": "verduras",
         "intentos": 2
       },
       {
         "cadena": "wong",
-        "categoria": "pescados-y-mariscos",
+        "categoria": "cerdo",
+        "intentos": 2
+      },
+      {
+        "cadena": "wong",
+        "categoria": "res-y-otras-carnes",
         "intentos": 2
       }
     ],
