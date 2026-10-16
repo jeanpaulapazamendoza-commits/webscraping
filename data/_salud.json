@@ -1,13 +1,13 @@
 {
-  "generado": "2026-10-15T16:46:51",
-  "ultimo_dia": "2026-10-15",
-  "hora_de_la_foto": "16:45",
-  "dias_con_dato": 124,
+  "generado": "2026-10-16T10:35:52",
+  "ultimo_dia": "2026-10-16",
+  "hora_de_la_foto": "10:35",
+  "dias_con_dato": 125,
   "primer_dia": "2026-05-27",
-  "filas": 435268,
-  "productos": 5097,
-  "productos_ultimo_dia": 4361,
-  "productos_dia_anterior": 4273,
+  "filas": 439596,
+  "productos": 5099,
+  "productos_ultimo_dia": 4328,
+  "productos_dia_anterior": 4361,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,16 +31,16 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1260,
+      "productos": 1250,
       "categorias": 63
     },
     "plazavea": {
-      "productos": 1030,
+      "productos": 1029,
       "categorias": 55
     },
     "tottus": {
-      "productos": 664,
-      "categorias": 46
+      "productos": 642,
+      "categorias": 47
     },
     "wong": {
       "productos": 1407,
@@ -53,21 +53,10 @@
   ],
   "corrida": {
     "targets": 84,
-    "exitosos": 82,
-    "fallidos": 2,
+    "exitosos": 84,
+    "fallidos": 0,
     "salvados_a_reintento": 0,
-    "fallos": [
-      {
-        "cadena": "tottus",
-        "categoria": "argentina",
-        "error": "La página no es un listado de productos (sin 'pagination'): https://www.tottus.com.pe/tottus-pe/lista/CATG17672/Argentina"
-      },
-      {
-        "cadena": "tottus",
-        "categoria": "uruguaya",
-        "error": "La página no es un listado de productos (sin 'pagination'): https://www.tottus.com.pe/tottus-pe/lista/CATG17673/Uruguaya"
-      }
-    ],
+    "fallos": [],
     "reintentos": [],
     "etapas": [
       {
