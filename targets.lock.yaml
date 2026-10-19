@@ -1,4 +1,4 @@
-generado: '2026-10-12T23:32:12'
+generado: '2026-10-19T12:26:26'
 nota: 'Generado por descubrir.py desde categorias.yaml. No editar a mano. El orden importa: scrape_all se queda con la primera aparición de cada producto y los nodos finos van primero.'
 targets:
 - supermercado: metro
@@ -186,6 +186,11 @@ targets:
   familia: pollo
   slug: cortes-congelados
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG43441/Cortes-Congelados
+- supermercado: tottus
+  nivel: 3
+  familia: pollo
+  slug: cortes-light
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG17677/Cortes-Light
 - supermercado: tottus
   nivel: 3
   familia: pollo
