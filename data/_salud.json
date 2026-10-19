@@ -1,13 +1,13 @@
 {
-  "generado": "2026-10-18T09:51:57",
-  "ultimo_dia": "2026-10-18",
-  "hora_de_la_foto": "09:51",
-  "dias_con_dato": 127,
+  "generado": "2026-10-19T12:50:47",
+  "ultimo_dia": "2026-10-19",
+  "hora_de_la_foto": "12:50",
+  "dias_con_dato": 128,
   "primer_dia": "2026-05-27",
-  "filas": 448339,
-  "productos": 5102,
-  "productos_ultimo_dia": 4382,
-  "productos_dia_anterior": 4361,
+  "filas": 452642,
+  "productos": 5104,
+  "productos_ultimo_dia": 4303,
+  "productos_dia_anterior": 4382,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,7 +31,7 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1263,
+      "productos": 1238,
       "categorias": 63
     },
     "plazavea": {
@@ -39,11 +39,11 @@
       "categorias": 55
     },
     "tottus": {
-      "productos": 677,
-      "categorias": 47
+      "productos": 630,
+      "categorias": 49
     },
     "wong": {
-      "productos": 1412,
+      "productos": 1405,
       "categorias": 64
     }
   },
@@ -52,12 +52,23 @@
     "faltan 18 día(s) en el histórico"
   ],
   "corrida": {
-    "targets": 84,
-    "exitosos": 84,
+    "targets": 85,
+    "exitosos": 85,
     "fallidos": 0,
-    "salvados_a_reintento": 0,
+    "salvados_a_reintento": 2,
     "fallos": [],
-    "reintentos": [],
+    "reintentos": [
+      {
+        "cadena": "wong",
+        "categoria": "frutas",
+        "intentos": 2
+      },
+      {
+        "cadena": "wong",
+        "categoria": "res-y-otras-carnes",
+        "intentos": 2
+      }
+    ],
     "etapas": [
       {
         "etapa": "Exportando a Google Sheets...",
