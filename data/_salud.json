@@ -1,13 +1,13 @@
 {
-  "generado": "2026-10-19T12:50:47",
-  "ultimo_dia": "2026-10-19",
-  "hora_de_la_foto": "12:50",
-  "dias_con_dato": 128,
+  "generado": "2026-10-20T10:54:19",
+  "ultimo_dia": "2026-10-20",
+  "hora_de_la_foto": "10:54",
+  "dias_con_dato": 129,
   "primer_dia": "2026-05-27",
-  "filas": 452642,
-  "productos": 5104,
-  "productos_ultimo_dia": 4303,
-  "productos_dia_anterior": 4382,
+  "filas": 456913,
+  "productos": 5114,
+  "productos_ultimo_dia": 4271,
+  "productos_dia_anterior": 4303,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,19 +31,19 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1238,
+      "productos": 1236,
       "categorias": 63
     },
     "plazavea": {
-      "productos": 1030,
+      "productos": 1036,
       "categorias": 55
     },
     "tottus": {
-      "productos": 630,
-      "categorias": 49
+      "productos": 595,
+      "categorias": 48
     },
     "wong": {
-      "productos": 1405,
+      "productos": 1404,
       "categorias": 64
     }
   },
@@ -55,17 +55,12 @@
     "targets": 85,
     "exitosos": 85,
     "fallidos": 0,
-    "salvados_a_reintento": 2,
+    "salvados_a_reintento": 1,
     "fallos": [],
     "reintentos": [
       {
-        "cadena": "wong",
-        "categoria": "frutas",
-        "intentos": 2
-      },
-      {
-        "cadena": "wong",
-        "categoria": "res-y-otras-carnes",
+        "cadena": "metro",
+        "categoria": "chorizos",
         "intentos": 2
       }
     ],
