@@ -1,13 +1,13 @@
 {
-  "generado": "2026-10-20T10:54:19",
-  "ultimo_dia": "2026-10-20",
-  "hora_de_la_foto": "10:54",
-  "dias_con_dato": 129,
+  "generado": "2026-10-21T11:09:53",
+  "ultimo_dia": "2026-10-21",
+  "hora_de_la_foto": "11:09",
+  "dias_con_dato": 130,
   "primer_dia": "2026-05-27",
-  "filas": 456913,
-  "productos": 5114,
-  "productos_ultimo_dia": 4271,
-  "productos_dia_anterior": 4303,
+  "filas": 461195,
+  "productos": 5120,
+  "productos_ultimo_dia": 4282,
+  "productos_dia_anterior": 4271,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,19 +31,19 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1236,
+      "productos": 1239,
       "categorias": 63
     },
     "plazavea": {
-      "productos": 1036,
+      "productos": 1037,
       "categorias": 55
     },
     "tottus": {
-      "productos": 595,
+      "productos": 600,
       "categorias": 48
     },
     "wong": {
-      "productos": 1404,
+      "productos": 1406,
       "categorias": 64
     }
   },
@@ -55,15 +55,9 @@
     "targets": 85,
     "exitosos": 85,
     "fallidos": 0,
-    "salvados_a_reintento": 1,
+    "salvados_a_reintento": 0,
     "fallos": [],
-    "reintentos": [
-      {
-        "cadena": "metro",
-        "categoria": "chorizos",
-        "intentos": 2
-      }
-    ],
+    "reintentos": [],
     "etapas": [
       {
         "etapa": "Exportando a Google Sheets...",
