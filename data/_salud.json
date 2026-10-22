@@ -1,12 +1,12 @@
 {
-  "generado": "2026-10-22T11:05:23",
+  "generado": "2026-10-22T15:34:31",
   "ultimo_dia": "2026-10-22",
-  "hora_de_la_foto": "11:05",
+  "hora_de_la_foto": "15:34",
   "dias_con_dato": 131,
   "primer_dia": "2026-05-27",
-  "filas": 465515,
-  "productos": 5122,
-  "productos_ultimo_dia": 4320,
+  "filas": 466366,
+  "productos": 5955,
+  "productos_ultimo_dia": 5171,
   "productos_dia_anterior": 4282,
   "atraso_dias": 0,
   "dias_faltantes": [
@@ -31,20 +31,20 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1243,
-      "categorias": 63
+      "productos": 1456,
+      "categorias": 76
     },
     "plazavea": {
-      "productos": 1038,
-      "categorias": 55
+      "productos": 1312,
+      "categorias": 69
     },
     "tottus": {
-      "productos": 636,
-      "categorias": 48
+      "productos": 737,
+      "categorias": 55
     },
     "wong": {
-      "productos": 1403,
-      "categorias": 64
+      "productos": 1666,
+      "categorias": 77
     }
   },
   "problemas": [],
@@ -52,8 +52,8 @@
     "faltan 18 día(s) en el histórico"
   ],
   "corrida": {
-    "targets": 85,
-    "exitosos": 85,
+    "targets": 104,
+    "exitosos": 104,
     "fallidos": 0,
     "salvados_a_reintento": 0,
     "fallos": [],
