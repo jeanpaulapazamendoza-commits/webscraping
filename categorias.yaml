@@ -24,6 +24,10 @@ departamentos:
     # cada cadena resuelve el que tiene.
     - embutidos-y-fiambres/embutidos/chorizos
     - quesos-y-fiambres/embutidos/chorizos
+    # Comida lista: pollo rostizado, broaster, tamales, pizzas, ensaladas
+    # listas. Otra vez cada cadena lo llama distinto.
+    - comidas-y-rostizados                  # Wong y Metro
+    - pollo-rostizado-y-comidas-preparadas  # Plaza Vea
   tottus:
     - Carnes
     - Frutas y Verduras
@@ -31,6 +35,7 @@ departamentos:
     # Parrillero. Declarando el nombre entran los dos, y el deduplicado por
     # producto_id se encarga de lo que esté en los dos lados.
     - Chorizos
+    - Platos Preparados
 
 # Hasta qué profundidad del árbol se piden los nodos.
 #
@@ -73,6 +78,22 @@ excluir:
 # caería en parrilla y la sección pedida quedaría mezclada con hamburguesas y
 # anticuchos.
 familias:
+  # Primera de la lista y no por capricho: un "Pollo Rostizado" cuesta S/ 22,90
+  # la unidad y el pollo crudo ronda los S/ 9 el kilo. Si cayera en la familia
+  # `pollo` —que pasaría, porque el nombre la nombra— ensuciaría su serie de
+  # precios con un producto que no es el mismo. Comida lista es otra cosa.
+  #
+  # Los términos son específicos a propósito. Uno genérico como `preparad`
+  # también reconocería a "frutas-picadas-y-preparadas" y a
+  # "verduras-preparadas-y-picadas", que son fruta y verdura cortada, no comida
+  # lista, y les robaría la familia.
+  # `crema` está acá y no en verduras por un caso concreto: "Ajíes y Cremas"
+  # de Tottus cuelga de Platos Preparados y son cremas del mostrador, pero el
+  # "ají" de su nombre lo mandaba a verduras junto al ají fresco. Nombrar las
+  # dos familias hace que gane la primera, que es esta.
+  preparados: [rostizado, broaster, tamal, humita, pizza, empanada, sandwich,
+               combo, rosticeria, comidas-preparadas, platos-preparados,
+               listo, lista, crema, cena, navide, granel]
   chorizos: [chorizo]
   res:      [res, bisteck, lomo, asado, churrasco, malaya, cuadril, vacuno]
   pollo:    [pollo, gallina, aves-y-huevos, huevo]

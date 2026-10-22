@@ -357,6 +357,46 @@ def test_un_padre_ambiguo_no_decide_pero_uno_claro_si():
                       ["Huevos y Fiambres", "Chorizos"]) == "chorizos"
 
 
+# ── comida lista contra producto crudo ───────────────────────────────────────
+#
+# Un "Pollo Rostizado" cuesta S/ 22,90 la unidad y el pollo crudo ronda los
+# S/ 9 el kilo. Que compartieran familia ensuciaría la serie de precios del
+# pollo con un producto que no es el mismo.
+
+def test_el_pollo_rostizado_no_cae_en_la_familia_pollo():
+    assert familia_de("pollo-rostizado", "Pollo Rostizado", REGLAS, {}) == "preparados"
+
+
+def test_el_pollo_crudo_sigue_siendo_pollo():
+    assert familia_de("pollo-entero", "Pollo Entero", REGLAS, {}) == "pollo"
+    assert familia_de("cortes-de-pollo", "Cortes de Pollo", REGLAS, {}) == "pollo"
+
+
+def test_las_cremas_del_mostrador_no_son_verdura():
+    """"Ajíes y Cremas" cuelga de Platos Preparados y son cremas preparadas,
+    pero el "ají" del nombre lo mandaba a verduras junto al ají fresco."""
+    assert familia_de("ajies-y-cremas", "Ajíes y Cremas", REGLAS, {},
+                      ["Platos Preparados"]) == "preparados"
+    assert familia_de("cebolla-tomate-ajo-y-ajies", "Cebolla, Tomate, Ajo y Ajíes",
+                      REGLAS, {}) == "verduras"
+
+
+def test_la_fruta_cortada_no_es_comida_lista():
+    """Por esto los términos de `preparados` son específicos y no un `preparad`
+    genérico: reconocería a estas dos y les robaría la familia."""
+    assert familia_de("frutas-picadas-y-preparadas", "Frutas Picadas y Preparadas",
+                      REGLAS, {}) == "frutas"
+    assert familia_de("verduras-preparadas-y-picadas", "Verduras Preparadas y Picadas",
+                      REGLAS, {}) == "verduras"
+
+
+def test_los_preparados_de_pollo_del_mostrador_de_carnes_siguen_en_pollo():
+    """"preparados-de-pollo" vive en aves-y-huevos y es pollo crudo adobado,
+    no comida lista."""
+    assert familia_de("preparados-de-pollo", "Preparados de Pollo", REGLAS, {},
+                      ["Carnes, Aves y Pescados", "Aves y Huevos"]) == "pollo"
+
+
 # ── la declaración de verdad ─────────────────────────────────────────────────
 
 def test_categorias_yaml_declara_lo_que_descubrir_lee():

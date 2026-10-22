@@ -3,9 +3,9 @@
 [![Scraping diario](https://github.com/jeanpaulapazamendoza-commits/webscraping/actions/workflows/scrape.yml/badge.svg)](https://github.com/jeanpaulapazamendoza-commits/webscraping/actions/workflows/scrape.yml)
 [![Estado de los datos](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjeanpaulapazamendoza-commits%2Fwebscraping%2Fmain%2Fdata%2F_badge.json)](data/_salud.json)
 
-Pipeline automatizado que scrapea los precios de carnes y frutas/verduras en 4
-supermercados peruanos (Tottus, Wong, Metro, Plaza Vea) —unos 4.000 productos por día
-repartidos en 223 categorías—, todos los días, y los muestra en un dashboard web
+Pipeline automatizado que scrapea precios en 4 supermercados peruanos (Tottus,
+Wong, Metro, Plaza Vea) —carnes, frutas y verduras, chorizos y comida lista—,
+todos los días, y los muestra en un dashboard web
 (Streamlit) con histórico de evolución. El histórico completo también se replica en
 un Google Sheet en la nube.
 

@@ -1,4 +1,4 @@
-generado: '2026-10-19T12:26:26'
+generado: '2026-10-22T15:19:04'
 nota: 'Generado por descubrir.py desde categorias.yaml. No editar a mano. El orden importa: scrape_all se queda con la primera aparición de cada producto y los nodos finos van primero.'
 targets:
 - supermercado: metro
@@ -31,6 +31,16 @@ targets:
   familia: pollo
   slug: aves-y-huevos
   url: https://www.metro.pe/carnes-aves-y-pescados/aves-y-huevos
+- supermercado: metro
+  nivel: 2
+  familia: preparados
+  slug: comidas
+  url: https://www.metro.pe/comidas-y-rostizados/comidas
+- supermercado: metro
+  nivel: 2
+  familia: preparados
+  slug: rostizados
+  url: https://www.metro.pe/comidas-y-rostizados/rostizados
 - supermercado: metro
   nivel: 2
   familia: res
@@ -71,6 +81,36 @@ targets:
   familia: pollo
   slug: pollo
   url: https://www.plazavea.com.pe/carnes-aves-y-pescados/pollo
+- supermercado: plazavea
+  nivel: 2
+  familia: preparados
+  slug: cenas-navidenas
+  url: https://www.plazavea.com.pe/pollo-rostizado-y-comidas-preparadas/cenas-navidenas
+- supermercado: plazavea
+  nivel: 2
+  familia: preparados
+  slug: comidas-preparadas
+  url: https://www.plazavea.com.pe/pollo-rostizado-y-comidas-preparadas/comidas-preparadas
+- supermercado: plazavea
+  nivel: 2
+  familia: preparados
+  slug: cremas-salsas-y-condimentos-a-granel
+  url: https://www.plazavea.com.pe/pollo-rostizado-y-comidas-preparadas/cremas-salsas-y-condimentos-a-granel
+- supermercado: plazavea
+  nivel: 2
+  familia: preparados
+  slug: pizzas-y-pastas-frescas
+  url: https://www.plazavea.com.pe/pollo-rostizado-y-comidas-preparadas/pizzas-y-pastas-frescas
+- supermercado: plazavea
+  nivel: 2
+  familia: preparados
+  slug: pollo-rostizado
+  url: https://www.plazavea.com.pe/pollo-rostizado-y-comidas-preparadas/pollo-rostizado
+- supermercado: plazavea
+  nivel: 2
+  familia: preparados
+  slug: tamales-y-humitas
+  url: https://www.plazavea.com.pe/pollo-rostizado-y-comidas-preparadas/tamales-y-humitas
 - supermercado: plazavea
   nivel: 2
   familia: res
@@ -206,6 +246,11 @@ targets:
   familia: pollo
   slug: pollo-elaborados
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG17678/Elaborados
+- supermercado: tottus
+  nivel: 3
+  familia: preparados
+  slug: listo-para-calentar-platos-preparados
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG17530/Platos-Preparados
 - supermercado: tottus
   nivel: 3
   familia: res
@@ -348,6 +393,41 @@ targets:
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG17675/Entero
 - supermercado: tottus
   nivel: 2
+  familia: preparados
+  slug: ajies-y-cremas
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16807/Ajies-y-Cremas
+- supermercado: tottus
+  nivel: 2
+  familia: preparados
+  slug: empanadas-y-sandwiches
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG17539/Empanadas-y-Sandwiches
+- supermercado: tottus
+  nivel: 2
+  familia: preparados
+  slug: pizzas
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16805/Pizzas
+- supermercado: tottus
+  nivel: 2
+  familia: preparados
+  slug: platos-listos
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16806/Listo-para-Calentar
+- supermercado: tottus
+  nivel: 2
+  familia: preparados
+  slug: pollo-broaster
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG34298/Broaster-y-Piqueos
+- supermercado: tottus
+  nivel: 2
+  familia: preparados
+  slug: pollo-rostizado
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16804/Pollo-Rostizado
+- supermercado: tottus
+  nivel: 2
+  familia: preparados
+  slug: tamales-y-humitas
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG17538/Tamales-y-Humitas
+- supermercado: tottus
+  nivel: 2
   familia: res
   slug: carnes-de-res
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG17670/Cortes-Parrilleros-Nacional
@@ -386,6 +466,11 @@ targets:
   familia: otros
   slug: catg16076-carnes
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG16076/Carnes
+- supermercado: tottus
+  nivel: 1
+  familia: preparados
+  slug: catg16064-platos-preparados
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG16064/Platos-Preparados
 - supermercado: wong
   nivel: 3
   familia: chorizos
@@ -416,6 +501,16 @@ targets:
   familia: pollo
   slug: aves-y-huevos
   url: https://www.wong.pe/carnes-aves-y-pescados/aves-y-huevos
+- supermercado: wong
+  nivel: 2
+  familia: preparados
+  slug: comidas
+  url: https://www.wong.pe/comidas-y-rostizados/comidas
+- supermercado: wong
+  nivel: 2
+  familia: preparados
+  slug: rostizados
+  url: https://www.wong.pe/comidas-y-rostizados/rostizados
 - supermercado: wong
   nivel: 2
   familia: res
