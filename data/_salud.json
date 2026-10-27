@@ -1,13 +1,13 @@
 {
-  "generado": "2026-10-26T12:43:40",
-  "ultimo_dia": "2026-10-26",
-  "hora_de_la_foto": "12:43",
-  "dias_con_dato": 135,
+  "generado": "2026-10-27T11:56:23",
+  "ultimo_dia": "2026-10-27",
+  "hora_de_la_foto": "11:56",
+  "dias_con_dato": 136,
   "primer_dia": "2026-05-27",
-  "filas": 486994,
-  "productos": 5991,
-  "productos_ultimo_dia": 5161,
-  "productos_dia_anterior": 5112,
+  "filas": 492109,
+  "productos": 5993,
+  "productos_ultimo_dia": 5115,
+  "productos_dia_anterior": 5161,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,19 +31,19 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1437,
+      "productos": 1433,
       "categorias": 76
     },
     "plazavea": {
-      "productos": 1311,
+      "productos": 1312,
       "categorias": 69
     },
     "tottus": {
-      "productos": 751,
+      "productos": 715,
       "categorias": 55
     },
     "wong": {
-      "productos": 1662,
+      "productos": 1655,
       "categorias": 77
     }
   },
@@ -55,9 +55,25 @@
     "targets": 104,
     "exitosos": 104,
     "fallidos": 0,
-    "salvados_a_reintento": 0,
+    "salvados_a_reintento": 3,
     "fallos": [],
-    "reintentos": [],
+    "reintentos": [
+      {
+        "cadena": "plazavea",
+        "categoria": "frutas",
+        "intentos": 2
+      },
+      {
+        "cadena": "plazavea",
+        "categoria": "verduras",
+        "intentos": 2
+      },
+      {
+        "cadena": "wong",
+        "categoria": "cerdo",
+        "intentos": 2
+      }
+    ],
     "etapas": [
       {
         "etapa": "Exportando a Google Sheets...",
