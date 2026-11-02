@@ -1,4 +1,4 @@
-generado: '2026-10-26T12:16:34'
+generado: '2026-11-02T15:44:07'
 nota: 'Generado por descubrir.py desde categorias.yaml. No editar a mano. El orden importa: scrape_all se queda con la primera aparición de cada producto y los nodos finos van primero.'
 targets:
 - supermercado: metro
