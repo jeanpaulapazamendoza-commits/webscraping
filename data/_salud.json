@@ -1,13 +1,13 @@
 {
-  "generado": "2026-11-05T14:01:04",
-  "ultimo_dia": "2026-11-05",
-  "hora_de_la_foto": "14:00",
-  "dias_con_dato": 145,
+  "generado": "2026-11-06T13:27:47",
+  "ultimo_dia": "2026-11-06",
+  "hora_de_la_foto": "13:27",
+  "dias_con_dato": 146,
   "primer_dia": "2026-05-27",
-  "filas": 538828,
-  "productos": 6045,
-  "productos_ultimo_dia": 5197,
-  "productos_dia_anterior": 5163,
+  "filas": 544035,
+  "productos": 6048,
+  "productos_ultimo_dia": 5207,
+  "productos_dia_anterior": 5197,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,11 +31,11 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1434,
+      "productos": 1448,
       "categorias": 75
     },
     "plazavea": {
-      "productos": 1310,
+      "productos": 1311,
       "categorias": 69
     },
     "tottus": {
@@ -43,7 +43,7 @@
       "categorias": 54
     },
     "wong": {
-      "productos": 1654,
+      "productos": 1649,
       "categorias": 77
     }
   },
@@ -55,9 +55,15 @@
     "targets": 104,
     "exitosos": 104,
     "fallidos": 0,
-    "salvados_a_reintento": 0,
+    "salvados_a_reintento": 1,
     "fallos": [],
-    "reintentos": [],
+    "reintentos": [
+      {
+        "cadena": "tottus",
+        "categoria": "brocoli-col-coliflor-y-alcachofa",
+        "intentos": 2
+      }
+    ],
     "etapas": [
       {
         "etapa": "Exportando a Google Sheets...",
