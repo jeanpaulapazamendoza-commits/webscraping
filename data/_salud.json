@@ -1,13 +1,13 @@
 {
-  "generado": "2026-11-08T12:17:22",
-  "ultimo_dia": "2026-11-08",
-  "hora_de_la_foto": "12:17",
-  "dias_con_dato": 148,
+  "generado": "2026-11-09T16:40:42",
+  "ultimo_dia": "2026-11-09",
+  "hora_de_la_foto": "16:40",
+  "dias_con_dato": 149,
   "primer_dia": "2026-05-27",
-  "filas": 554472,
-  "productos": 6053,
-  "productos_ultimo_dia": 5216,
-  "productos_dia_anterior": 5221,
+  "filas": 559624,
+  "productos": 6055,
+  "productos_ultimo_dia": 5152,
+  "productos_dia_anterior": 5216,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,19 +31,19 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1441,
+      "productos": 1407,
       "categorias": 75
     },
     "plazavea": {
-      "productos": 1311,
+      "productos": 1312,
       "categorias": 69
     },
     "tottus": {
-      "productos": 804,
+      "productos": 793,
       "categorias": 54
     },
     "wong": {
-      "productos": 1660,
+      "productos": 1640,
       "categorias": 77
     }
   },
