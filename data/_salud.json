@@ -1,13 +1,13 @@
 {
-  "generado": "2026-11-13T13:47:56",
-  "ultimo_dia": "2026-11-13",
-  "hora_de_la_foto": "13:47",
-  "dias_con_dato": 153,
+  "generado": "2026-11-14T12:20:53",
+  "ultimo_dia": "2026-11-14",
+  "hora_de_la_foto": "12:20",
+  "dias_con_dato": 154,
   "primer_dia": "2026-05-27",
-  "filas": 580235,
+  "filas": 585415,
   "productos": 6076,
-  "productos_ultimo_dia": 5186,
-  "productos_dia_anterior": 5179,
+  "productos_ultimo_dia": 5180,
+  "productos_dia_anterior": 5186,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,19 +31,19 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1430,
+      "productos": 1433,
       "categorias": 75
     },
     "plazavea": {
-      "productos": 1309,
+      "productos": 1308,
       "categorias": 69
     },
     "tottus": {
-      "productos": 791,
+      "productos": 775,
       "categorias": 54
     },
     "wong": {
-      "productos": 1656,
+      "productos": 1664,
       "categorias": 77
     }
   },
@@ -55,9 +55,15 @@
     "targets": 104,
     "exitosos": 104,
     "fallidos": 0,
-    "salvados_a_reintento": 0,
+    "salvados_a_reintento": 1,
     "fallos": [],
-    "reintentos": [],
+    "reintentos": [
+      {
+        "cadena": "wong",
+        "categoria": "comidas",
+        "intentos": 2
+      }
+    ],
     "etapas": [
       {
         "etapa": "Exportando a Google Sheets...",
