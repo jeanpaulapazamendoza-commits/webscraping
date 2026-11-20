@@ -1,13 +1,13 @@
 {
-  "generado": "2026-11-19T14:41:29",
-  "ultimo_dia": "2026-11-19",
-  "hora_de_la_foto": "14:41",
-  "dias_con_dato": 159,
+  "generado": "2026-11-20T14:19:26",
+  "ultimo_dia": "2026-11-20",
+  "hora_de_la_foto": "14:19",
+  "dias_con_dato": 160,
   "primer_dia": "2026-05-27",
-  "filas": 611079,
-  "productos": 6103,
-  "productos_ultimo_dia": 5114,
-  "productos_dia_anterior": 5113,
+  "filas": 616188,
+  "productos": 6111,
+  "productos_ultimo_dia": 5109,
+  "productos_dia_anterior": 5114,
   "atraso_dias": 0,
   "dias_faltantes": [
     "2026-05-28",
@@ -31,7 +31,7 @@
   ],
   "por_cadena": {
     "metro": {
-      "productos": 1412,
+      "productos": 1424,
       "categorias": 76
     },
     "plazavea": {
@@ -39,11 +39,11 @@
       "categorias": 69
     },
     "tottus": {
-      "productos": 735,
-      "categorias": 55
+      "productos": 720,
+      "categorias": 54
     },
     "wong": {
-      "productos": 1654,
+      "productos": 1652,
       "categorias": 77
     }
   },
@@ -53,10 +53,16 @@
   ],
   "corrida": {
     "targets": 104,
-    "exitosos": 104,
-    "fallidos": 0,
+    "exitosos": 103,
+    "fallidos": 1,
     "salvados_a_reintento": 0,
-    "fallos": [],
+    "fallos": [
+      {
+        "cadena": "tottus",
+        "categoria": "menudencias",
+        "error": "La página no es un listado de productos (sin 'pagination'): https://www.tottus.com.pe/tottus-pe/lista/CATG17679/Menudencias"
+      }
+    ],
     "reintentos": [],
     "etapas": [
       {
