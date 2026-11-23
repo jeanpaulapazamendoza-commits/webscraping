@@ -1,4 +1,4 @@
-generado: '2026-11-16T15:54:56'
+generado: '2026-11-23T17:32:33'
 nota: 'Generado por descubrir.py desde categorias.yaml. No editar a mano. El orden importa: scrape_all se queda con la primera aparición de cada producto y los nodos finos van primero.'
 targets:
 - supermercado: metro
@@ -206,6 +206,11 @@ targets:
   familia: parrilla
   slug: hamburguesas
   url: https://www.tottus.com.pe/tottus-pe/lista/CATG17695/Hamburguesas
+- supermercado: tottus
+  nivel: 3
+  familia: pavo
+  slug: entero
+  url: https://www.tottus.com.pe/tottus-pe/lista/CATG17685/Entero
 - supermercado: tottus
   nivel: 3
   familia: pavo
